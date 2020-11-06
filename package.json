@@ -1,0 +1,39 @@
+{
+  "name": "oatyp",
+  "version": "1.0.0-alpha.0",
+  "description": "Build Typescript typings from OpenAPI definitions",
+  "main": "build/src/index.js",
+  "repository": "git@github.com:Eywek/oatyp.git",
+  "author": "Valentin Touffet <contact@eywek.fr>",
+  "license": "MIT",
+  "scripts": {
+    "prepublish": "yarn build",
+    "prebuild": "rm -rf build",
+    "build": "tsc --project ./tsconfig.build.json",
+    "test": "NODE_V8_COVERAGE=./coverage ava",
+    "posttest": "c8 --all report -x example -x build -x node_modules --temp-directory=./coverage/ --report-dir=./coverage -r json"
+  },
+  "dependencies": {
+    "ts-morph": "^8.1.2",
+    "yargs": "^16.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^14.14.6",
+    "@types/yargs": "^15.0.9",
+    "ts-node": "^9.0.0",
+    "tslint": "^6.1.3",
+    "tslint-config-standard": "^9.0.0",
+    "typescript": "^4.0.5"
+  },
+  "ava": {
+    "files": [
+      "tests/**/*.test.ts"
+    ],
+    "extensions": [
+      "ts"
+    ],
+    "require": [
+      "ts-node/register/transpile-only"
+    ]
+  }
+}

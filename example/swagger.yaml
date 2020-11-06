@@ -1,0 +1,1012 @@
+openapi: 3.0.0
+info:
+    title: entity-manager
+    version: unknown
+paths:
+    /companies/defaults:
+        get:
+            parameters: []
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {type: object, properties: {roleId: {type: string}, resourceGroupIds: {type: array, items: {type: string}}}, required: [roleId, resourceGroupIds]}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+                '404':
+                    description: ""
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - {type: object, properties: {program: {type: string}, version: {type: string}, datetime: {type: string}, status: {type: string}, code: {type: number}, message: {type: string}, data: {type: object, properties: {}}}, required: [program, version, datetime, status, message, data]}
+                                    - {type: object, properties: {status: {type: string, enum: [fail]}, error_code: {type: number, enum: [5200]}, code: {type: number, enum: [404]}, message: {type: string, enum: ['Company not found']}, data: {type: object, properties: {id: {type: string}}, required: [id]}}, required: [status, error_code, code, message]}
+            tags:
+                - Company
+            operationId: get-company-defaults
+        post:
+            parameters: []
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {$ref: '#/components/schemas/Company'}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+                '404':
+                    description: ""
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - {type: object, properties: {program: {type: string}, version: {type: string}, datetime: {type: string}, status: {type: string}, code: {type: number}, message: {type: string}, data: {type: object, properties: {}}}, required: [program, version, datetime, status, message, data]}
+                                    - {type: object, properties: {status: {type: string, enum: [fail]}, error_code: {type: number, enum: [5200]}, code: {type: number, enum: [404]}, message: {type: string, enum: ['Company not found']}, data: {type: object, properties: {id: {type: string}}, required: [id]}}, required: [status, error_code, code, message]}
+            tags:
+                - Company
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Partial__roleId-string--resourceGroupIds-string-Array--__'
+            operationId: set-company-defaults
+    /resource-groups:
+        get:
+            parameters: []
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {type: array, items: {$ref: '#/components/schemas/ResourceGroup'}}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+            tags:
+                - ResourceGroup
+            operationId: get-resource-groups
+        post:
+            parameters: []
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {$ref: '#/components/schemas/ResourceGroup'}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+            tags:
+                - ResourceGroup
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/ResourceGroup'
+            operationId: create-resource-group
+    '/resource-groups/{id}':
+        patch:
+            parameters:
+                -
+                    name: id
+                    in: path
+                    schema:
+                        type: string
+                    required: true
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {$ref: '#/components/schemas/ResourceGroup'}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+                '404':
+                    description: ""
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - {type: object, properties: {program: {type: string}, version: {type: string}, datetime: {type: string}, status: {type: string}, code: {type: number}, message: {type: string}, data: {type: object, properties: {}}}, required: [program, version, datetime, status, message, data]}
+                                    - {type: object, properties: {status: {type: string, enum: [fail]}, error_code: {type: number, enum: [5100]}, code: {type: number, enum: [404]}, message: {type: string, enum: ['Resource group not found']}, data: {type: object, properties: {id: {type: string}}, required: [id]}}, required: [status, error_code, code, message]}
+            tags:
+                - ResourceGroup
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Partial_Pick_Pick_ResourceGroup__.name-or-color__'
+            operationId: update-resource-group
+        delete:
+            parameters:
+                -
+                    name: id
+                    in: path
+                    schema:
+                        type: string
+                    required: true
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {type: object, properties: {}}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+                '400':
+                    description: ""
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - {type: object, properties: {program: {type: string}, version: {type: string}, datetime: {type: string}, status: {type: string}, code: {type: number}, message: {type: string}, data: {type: object, properties: {}}}, required: [program, version, datetime, status, message, data]}
+                                    - {type: object, properties: {status: {type: string, enum: [fail]}, error_code: {type: number, enum: [5101]}, code: {type: number, enum: [400]}, message: {type: string, enum: ['You can''t delete an used resource group']}, data: {type: object, properties: {resources: {type: array, items: {type: object, properties: {name: {type: string}, resources: {type: array, items: {type: object, properties: {id: {type: string}}, required: [id]}}}, required: [name, resources]}}}, required: [resources]}}, required: [status, error_code, code, message]}
+                '404':
+                    description: ""
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - {type: object, properties: {program: {type: string}, version: {type: string}, datetime: {type: string}, status: {type: string}, code: {type: number}, message: {type: string}, data: {type: object, properties: {}}}, required: [program, version, datetime, status, message, data]}
+                                    - {type: object, properties: {status: {type: string, enum: [fail]}, error_code: {type: number, enum: [5100]}, code: {type: number, enum: [404]}, message: {type: string, enum: ['Resource group not found']}, data: {type: object, properties: {id: {type: string}}, required: [id]}}, required: [status, error_code, code, message]}
+            tags:
+                - ResourceGroup
+            operationId: delete-resource-group
+    /roles:
+        get:
+            parameters: []
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {type: array, items: {$ref: '#/components/schemas/Role'}}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+            tags:
+                - Role
+            operationId: get-roles
+        post:
+            parameters: []
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {$ref: '#/components/schemas/Role'}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+            tags:
+                - Role
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Role'
+            operationId: create-role
+    '/roles/{id}':
+        patch:
+            parameters:
+                -
+                    name: id
+                    in: path
+                    schema:
+                        type: string
+                    required: true
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {$ref: '#/components/schemas/Role'}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+                '404':
+                    description: ""
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - {type: object, properties: {program: {type: string}, version: {type: string}, datetime: {type: string}, status: {type: string}, code: {type: number}, message: {type: string}, data: {type: object, properties: {}}}, required: [program, version, datetime, status, message, data]}
+                                    - {type: object, properties: {status: {type: string, enum: [fail]}, error_code: {type: number, enum: [5000]}, code: {type: number, enum: [404]}, message: {type: string, enum: ['Role not found']}, data: {type: object, properties: {id: {type: string}}, required: [id]}}, required: [status, error_code, code, message]}
+            tags:
+                - Role
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Partial_Pick_Pick_Role__.name-or-rules-or-undefined__'
+            operationId: update-role
+        delete:
+            parameters:
+                -
+                    name: id
+                    in: path
+                    schema:
+                        type: string
+                    required: true
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {type: object, properties: {}}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+                '400':
+                    description: ""
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - {type: object, properties: {program: {type: string}, version: {type: string}, datetime: {type: string}, status: {type: string}, code: {type: number}, message: {type: string}, data: {type: object, properties: {}}}, required: [program, version, datetime, status, message, data]}
+                                    - {type: object, properties: {status: {type: string, enum: [fail]}, error_code: {type: number, enum: [5001]}, code: {type: number, enum: [400]}, message: {type: string, enum: ['You can''t delete an used role']}, data: {type: object, properties: {count: {type: number}}, required: [count]}}, required: [status, error_code, code, message]}
+                '404':
+                    description: ""
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - {type: object, properties: {program: {type: string}, version: {type: string}, datetime: {type: string}, status: {type: string}, code: {type: number}, message: {type: string}, data: {type: object, properties: {}}}, required: [program, version, datetime, status, message, data]}
+                                    - {type: object, properties: {status: {type: string, enum: [fail]}, error_code: {type: number, enum: [5000]}, code: {type: number, enum: [404]}, message: {type: string, enum: ['Role not found']}, data: {type: object, properties: {id: {type: string}}, required: [id]}}, required: [status, error_code, code, message]}
+            tags:
+                - Role
+            operationId: delete-role
+    /users:
+        get:
+            parameters:
+                -
+                    name: page
+                    in: query
+                    schema:
+                        type: number
+                        default: 1
+                        minimum: 1
+                    required: false
+                -
+                    name: perPage
+                    in: query
+                    schema:
+                        type: number
+                        default: 10
+                        minimum: 1
+                    required: false
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    paginationCount: {type: number}
+                                    paginationPage: {type: number}
+                                    paginationLimit: {type: number}
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {type: array, items: {$ref: '#/components/schemas/User'}}
+                                required:
+                                    - paginationCount
+                                    - paginationPage
+                                    - paginationLimit
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+            tags:
+                - User
+            operationId: get-users
+        post:
+            parameters: []
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {$ref: '#/components/schemas/User'}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+            tags:
+                - User
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            allOf:
+                                -
+                                    $ref: '#/components/schemas/User'
+                                -
+                                    type: object
+                                    properties: {resourceGroupIds: {type: array, items: {type: string}, pattern: '^[0-9a-fA-F]{24}$'}, roleId: {type: string, pattern: '^[0-9a-fA-F]{24}$'}}
+                                    required: [resourceGroupIds, roleId]
+            operationId: create-user
+    '/users/{id}':
+        patch:
+            parameters:
+                -
+                    name: id
+                    in: path
+                    schema:
+                        type: string
+                    required: true
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {$ref: '#/components/schemas/User'}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+                '404':
+                    description: ""
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - {type: object, properties: {program: {type: string}, version: {type: string}, datetime: {type: string}, status: {type: string}, code: {type: number}, message: {type: string}, data: {type: object, properties: {}}}, required: [program, version, datetime, status, message, data]}
+                                    - {type: object, properties: {status: {type: string, enum: [fail]}, error_code: {type: number, enum: [5300]}, code: {type: number, enum: [404]}, message: {type: string, enum: ['User not found']}, data: {type: object, properties: {id: {type: string}}, required: [id]}}, required: [status, error_code, code, message]}
+            tags:
+                - User
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Partial_SerializedUser_'
+            operationId: update-user
+        delete:
+            parameters:
+                -
+                    name: id
+                    in: path
+                    schema:
+                        type: string
+                    required: true
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {$ref: '#/components/schemas/User'}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+                '404':
+                    description: ""
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - {type: object, properties: {program: {type: string}, version: {type: string}, datetime: {type: string}, status: {type: string}, code: {type: number}, message: {type: string}, data: {type: object, properties: {}}}, required: [program, version, datetime, status, message, data]}
+                                    - {type: object, properties: {status: {type: string, enum: [fail]}, error_code: {type: number, enum: [5300]}, code: {type: number, enum: [404]}, message: {type: string, enum: ['User not found']}, data: {type: object, properties: {id: {type: string}}, required: [id]}}, required: [status, error_code, code, message]}
+            tags:
+                - User
+            operationId: delete-user
+    '/users/{id}/role':
+        post:
+            parameters:
+                -
+                    name: id
+                    in: path
+                    schema:
+                        type: string
+                    required: true
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {$ref: '#/components/schemas/User'}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+            tags:
+                - User
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                id:
+                                    type: string
+                            required:
+                                - id
+            operationId: set-user-role
+    '/users/{id}/resource-groups':
+        post:
+            parameters:
+                -
+                    name: id
+                    in: path
+                    schema:
+                        type: string
+                    required: true
+            responses:
+                '200':
+                    description: Ok
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    status: {type: string, enum: [success]}
+                                    program: {type: string}
+                                    version: {type: string}
+                                    datetime: {type: string}
+                                    code: {type: number}
+                                    message: {type: string}
+                                    data: {$ref: '#/components/schemas/User'}
+                                required:
+                                    - status
+                                    - program
+                                    - version
+                                    - datetime
+                                    - message
+                                    - data
+            tags:
+                - User
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                ids:
+                                    type: array
+                                    items: {type: string}
+                            required:
+                                - ids
+            operationId: set-user-resource-groups
+components:
+    schemas:
+        Plan:
+            type: object
+            properties:
+                quota:
+                    type: number
+                name:
+                    type: string
+            required:
+                - quota
+        PasswordPolicy:
+            type: object
+            properties:
+                passwordDuration:
+                    type: number
+                nbSpCharacter:
+                    type: number
+                    minimum: 0
+                nbIsNotAlphabeticCharacter:
+                    type: number
+                    minimum: 0
+        Record_never.boolean_:
+            type: object
+            properties: {}
+        Record_product_page-or-add_cart-or-purchase.string_:
+            type: object
+            properties:
+                product_page:
+                    type: string
+                add_cart:
+                    type: string
+                purchase:
+                    type: string
+            required:
+                - product_page
+                - add_cart
+                - purchase
+        SerializedCompany:
+            type: object
+            properties:
+                defaultRoleId:
+                    type: string
+                defaultResourceGroupIds:
+                    type: array
+                    items:
+                        type: string
+                name:
+                    type: string
+                address:
+                    type: object
+                    properties:
+                        line1:
+                            type: string
+                        line2:
+                            type: string
+                        zipcode:
+                            type: string
+                        city:
+                            type: string
+                        country:
+                            type: string
+                contact:
+                    type: object
+                    properties:
+                        name:
+                            type: string
+                        email:
+                            type: string
+                plan:
+                    allOf:
+                        -
+                            $ref: '#/components/schemas/Plan'
+                        -
+                            type: object
+                            properties:
+                                startDate:
+                                    type: string
+                                    format: date-time
+                                endDate:
+                                    type: string
+                                    format: date-time
+                            required:
+                                - startDate
+                                - endDate
+                password:
+                    $ref: '#/components/schemas/PasswordPolicy'
+                custom:
+                    type: object
+                    properties:
+                        colors:
+                            type: array
+                            items:
+                                type: string
+                retention:
+                    type: number
+                features:
+                    $ref: '#/components/schemas/Record_never.boolean_'
+                events:
+                    $ref: '#/components/schemas/Record_product_page-or-add_cart-or-purchase.string_'
+                disabled:
+                    type: boolean
+                meta:
+                    type: object
+                    properties:
+                        foo-bar:
+                            type: string
+                        esp:
+                            type: string
+            required:
+                - defaultRoleId
+                - defaultResourceGroupIds
+                - name
+                - plan
+                - retention
+                - features
+                - events
+                - disabled
+                - meta
+        Company:
+            $ref: '#/components/schemas/SerializedCompany'
+        Partial__roleId-string--resourceGroupIds-string-Array--__:
+            type: object
+            properties:
+                roleId:
+                    type: string
+                resourceGroupIds:
+                    type: array
+                    items:
+                        type: string
+        AnyValue:
+            description: 'Can be any value'
+        Record_string.unknown_:
+            type: object
+            properties: {}
+            additionalProperties:
+                $ref: '#/components/schemas/AnyValue'
+        RoleRule:
+            type: object
+            properties:
+                fields:
+                    type: array
+                    items:
+                        type: string
+                conditions:
+                    $ref: '#/components/schemas/Record_string.unknown_'
+                inverted:
+                    type: boolean
+                reason:
+                    type: string
+                action:
+                    type: string
+                subject:
+                    type: string
+                mustMatch:
+                    type: array
+                    items:
+                        oneOf:
+                            -
+                                type: string
+                                enum:
+                                    - roleId
+                            -
+                                type: string
+                                enum:
+                                    - resourceGroupIds
+                            -
+                                type: string
+                                enum:
+                                    - companyId
+                            -
+                                type: object
+                                properties:
+                                    field: {type: string}
+                                    value: {oneOf: [{type: string, enum: [roleId]}, {type: string, enum: [resourceGroupIds]}, {type: string, enum: [companyId]}, {type: string, enum: [id]}]}
+                                required:
+                                    - field
+                                    - value
+                            -
+                                type: string
+                                enum:
+                                    - id
+            required:
+                - action
+                - subject
+        SerializedRole:
+            type: object
+            properties:
+                id:
+                    type: string
+                    readOnly: true
+                companyId:
+                    type: string
+                    readOnly: true
+                name:
+                    type: string
+                rules:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/RoleRule'
+            required:
+                - id
+                - companyId
+                - name
+                - rules
+        Pick_Role.name-or-toJSON-or-rules_:
+            $ref: '#/components/schemas/SerializedRole'
+        Role:
+            $ref: '#/components/schemas/SerializedRole'
+        SerializedResourceGroup:
+            type: object
+            properties:
+                id:
+                    type: string
+                    readOnly: true
+                companyId:
+                    type: string
+                    readOnly: true
+                name:
+                    type: string
+                color:
+                    type: string
+                    default: '#5B25B3'
+            required:
+                - id
+                - companyId
+                - name
+        ResourceGroup:
+            $ref: '#/components/schemas/SerializedResourceGroup'
+        Partial_Pick_Pick_ResourceGroup__.name-or-color__:
+            type: object
+            properties:
+                name:
+                    type: string
+                color:
+                    type: string
+                    default: '#5B25B3'
+        Partial_Pick_Pick_Role__.name-or-rules-or-undefined__:
+            type: object
+            properties:
+                name:
+                    type: string
+                rules:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/RoleRule'
+        UserProfile:
+            type: object
+            properties:
+                firstname:
+                    type: string
+                lastname:
+                    type: string
+                jobtitle:
+                    type: string
+                phone:
+                    type: string
+                preferredLang:
+                    type: string
+        SerializedUser:
+            type: object
+            properties:
+                companyId:
+                    type: string
+                    readOnly: true
+                roleId:
+                    type: string
+                    readOnly: true
+                resourceGroupIds:
+                    type: array
+                    items:
+                        type: string
+                    readOnly: true
+                password:
+                    type: string
+                    writeOnly: true
+                disabled:
+                    type: boolean
+                    readOnly: true
+                email:
+                    type: string
+                lastPasswordUpdate:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                connection:
+                    type: object
+                    properties:
+                        lastAttempts:
+                            type: string
+                            format: date-time
+                        nbFail:
+                            type: number
+                    readOnly: true
+                profile:
+                    $ref: '#/components/schemas/UserProfile'
+            required:
+                - companyId
+                - roleId
+                - resourceGroupIds
+                - password
+                - disabled
+                - email
+                - lastPasswordUpdate
+                - mustUpdatePassword
+                - connection
+        User:
+            $ref: '#/components/schemas/SerializedUser'
+        Partial_SerializedUser_:
+            type: object
+            properties:
+                companyId:
+                    type: string
+                    readOnly: true
+                roleId:
+                    type: string
+                    readOnly: true
+                resourceGroupIds:
+                    type: array
+                    items:
+                        type: string
+                    readOnly: true
+                password:
+                    type: string
+                    writeOnly: true
+                disabled:
+                    type: boolean
+                    readOnly: true
+                email:
+                    type: string
+                lastPasswordUpdate:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                connection:
+                    type: object
+                    properties:
+                        lastAttempts:
+                            type: string
+                            format: date-time
+                        nbFail:
+                            type: number
+                    readOnly: true
+                profile:
+                    $ref: '#/components/schemas/UserProfile'
