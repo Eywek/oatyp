@@ -11,7 +11,7 @@ api.User.create({}, {
   password: 'my password',
   roleId: 'my role id',
   resourceGroupIds: ['group'],
-  profile: undefined
+  profile: {}
 }, {
   headers: {
     Cookie: 'access_token=eyJhbGciOi...'
