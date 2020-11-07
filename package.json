@@ -14,11 +14,14 @@
     "posttest": "c8 --all report -x example -x build -x node_modules --temp-directory=./coverage/ --report-dir=./coverage -r json"
   },
   "dependencies": {
+    "openapi-types": "^7.0.1",
     "ts-morph": "^8.1.2",
+    "yamljs": "^0.3.0",
     "yargs": "^16.1.0"
   },
   "devDependencies": {
     "@types/node": "^14.14.6",
+    "@types/yamljs": "^0.2.31",
     "@types/yargs": "^15.0.9",
     "ts-node": "^9.0.0",
     "tslint": "^6.1.3",

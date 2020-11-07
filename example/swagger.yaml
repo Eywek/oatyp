@@ -687,9 +687,10 @@ components:
                 nbIsNotAlphabeticCharacter:
                     type: number
                     minimum: 0
-        Record_never.boolean_:
+        Record_string.boolean_:
             type: object
-            properties: {}
+            additionalProperties:
+              type: boolean
         Record_product_page-or-add_cart-or-purchase.string_:
             type: object
             properties:
@@ -762,7 +763,7 @@ components:
                 retention:
                     type: number
                 features:
-                    $ref: '#/components/schemas/Record_never.boolean_'
+                    $ref: '#/components/schemas/Record_string.boolean_'
                 events:
                     $ref: '#/components/schemas/Record_product_page-or-add_cart-or-purchase.string_'
                 disabled:
@@ -818,7 +819,7 @@ components:
                 action:
                     type: string
                 subject:
-                    type: string
+                  $ref: '#/components/schemas/Subject'
                 mustMatch:
                     type: array
                     items:
@@ -850,6 +851,11 @@ components:
             required:
                 - action
                 - subject
+        Subject:
+            type: string
+            enum:
+              - Datasource
+              - Block
         SerializedRole:
             type: object
             properties:
