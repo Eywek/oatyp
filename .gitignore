@@ -4,3 +4,4 @@ coverage
 yarn-error.log
 example/*
 !example/swagger.yaml
+!example/index.ts

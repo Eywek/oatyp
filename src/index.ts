@@ -4,6 +4,7 @@ import YAML from 'yamljs'
 import { OpenAPIV3 } from 'openapi-types'
 import fs from 'fs'
 import { generateTypes } from './types'
+import { generateApi } from './api'
 
 export type GenerateConfig = {
   outDir: string,
@@ -20,7 +21,8 @@ export async function generate (config: GenerateConfig) {
       ...config.tsConfig
     }
   })
-  const sourceFile = project.createSourceFile('definitions.ts')
+  const typesSourceFile = project.createSourceFile('definitions.ts')
+  const apiSourceFile = project.createSourceFile('api.ts')
 
   // Load spec
   const ext = path.extname(config.openapiFilePath)
@@ -33,13 +35,18 @@ export async function generate (config: GenerateConfig) {
   }
 
   // Generate types
-  await generateTypes(sourceFile, spec)
+  await generateTypes(typesSourceFile, spec)
+
+  // Generate api
+  await generateApi(apiSourceFile, spec)
 
   // Emit files
   // await project.emit()
 
   // Emit typescript files
   const fileSystem = project.getFileSystem()
-  const relativePath = sourceFile.getRelativePathTo(sourceFile)
-  await fileSystem.writeFile(path.join(config.outDir, relativePath), '/* tslint:disable */\n/* eslint-disable */\n\n' + sourceFile.getFullText())
+  for (const sourceFile of [typesSourceFile, apiSourceFile]) {
+    const relativePath = sourceFile.getRelativePathTo(sourceFile)
+    await fileSystem.writeFile(path.join(config.outDir, relativePath), '/* tslint:disable */\n/* eslint-disable */\n\n' + sourceFile.getFullText())
+  }
 }

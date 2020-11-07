@@ -1,4 +1,4 @@
-import { SourceFile, WriterFunction, WriterFunctionOrValue, Writers } from 'ts-morph'
+import { CodeBlockWriter, SourceFile, WriterFunction, WriterFunctionOrValue, Writers } from 'ts-morph'
 import { OpenAPIV3 } from 'openapi-types'
 
 type WriterFunctionOrString = string | WriterFunction
@@ -24,15 +24,18 @@ export async function generateTypes (
   }
 }
 
-function generateTypeForSchema (
-  schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject
+export function generateTypeForSchema (
+  schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
+  prefixRef?: string
 ): WriterFunctionOrString {
   if ('$ref' in schema) {
-    return extractRef(schema.$ref)
+    const ref = extractRef(schema.$ref)
+    if (prefixRef) return `${prefixRef}.${ref}`
+    return ref
   }
   if (schema.allOf) {
     const types: WriterFunctionOrString[] = schema.allOf.map((subschema) => {
-      return generateTypeForSchema(subschema)
+      return generateTypeForSchema(subschema, prefixRef)
     })
     if (types.length < 2) {
       return types[0]
@@ -41,12 +44,12 @@ function generateTypeForSchema (
   }
   if (schema.oneOf) {
     const types = schema.oneOf.map((subschema) => {
-      return generateTypeForSchema(subschema)
+      return generateTypeForSchema(subschema, prefixRef)
     }) as [WriterFunctionOrString, WriterFunctionOrString, ...WriterFunctionOrString[]]
     return Writers.unionType(...types)
   }
   if (schema.type === 'array') {
-    const writerOrValue = generateTypeForSchema(schema.items)
+    const writerOrValue = generateTypeForSchema(schema.items, prefixRef)
     return (writer) => {
       writer.write('(')
       if (typeof writerOrValue === 'function') {
@@ -61,11 +64,11 @@ function generateTypeForSchema (
     const props = Object.entries(schema.properties ?? {})
       .reduce((props, [name, prop]) => {
         const questionMark = schema.required?.includes(name) === false ? '?' : ''
-        props[`'${name}'${questionMark}`] = generateTypeForSchema(prop)
+        props[`'${name}'${questionMark}`] = generateTypeForSchema(prop, prefixRef)
         return props
       }, {} as Record<string, WriterFunctionOrValue>)
     if (schema.additionalProperties && typeof schema.additionalProperties !== 'boolean') {
-      props[`[key: string]`] = generateTypeForSchema(schema.additionalProperties)
+      props[`[key: string]`] = generateTypeForSchema(schema.additionalProperties, prefixRef)
     }
     return Writers.object(props)
   }
@@ -88,6 +91,17 @@ function generateTypeForSchema (
     return 'string'
   }
   return 'any'
+}
+
+export function writeWriterOrString (
+  writer: CodeBlockWriter,
+  writerOrValue: WriterFunctionOrString
+) {
+  if (typeof writerOrValue === 'function') {
+    writerOrValue(writer)
+  } else {
+    writer.write(writerOrValue)
+  }
 }
 
 function extractRef (ref: string) {
