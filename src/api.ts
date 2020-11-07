@@ -88,7 +88,7 @@ export async function generateApi (// TODO: Use Omit for readonly / writeonly pr
           type: Writers.object(
             (operation.parameters ?? []).reduce((params, param) => {
               const config = param as OpenAPIV3.ParameterObject
-              params[`'${config.name}'`] = generateTypeForSchema(config.schema ?? {}, 'Types')
+              params[`'${config.name}'`] = generateTypeForSchema(config.schema ?? {}, 'Types.')
               return params
             }, {} as Record<string, WriterFunctionOrValue>)
           )
@@ -99,7 +99,7 @@ export async function generateApi (// TODO: Use Omit for readonly / writeonly pr
           if (bodySchema) {
             methodDeclaration.addParameter({
               name: 'data',
-              type: generateTypeForSchema(bodySchema, 'Types')
+              type: generateTypeForSchema(bodySchema, 'Types.WithoutReadonly<Types.', '>')
             })
           }
         }
@@ -113,7 +113,7 @@ export async function generateApi (// TODO: Use Omit for readonly / writeonly pr
         methodDeclaration.setBodyText(Writers.returnStatement((writer) => {
           writer.write(`this.axios.${method}<`)
           // Return type
-          writeWriterOrString(writer, generateTypeForSchema(successResponse.schema!, 'Types'))
+          writeWriterOrString(writer, generateTypeForSchema(successResponse.schema!, 'Types.WithoutWriteonly<Types.', '>'))
           writer.write('>(')
           // Endpoint
           writer.quote(path)

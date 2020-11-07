@@ -7,6 +7,46 @@ export async function generateTypes (
   file: SourceFile,
   spec: OpenAPIV3.Document
 ): Promise<void> {
+  // Idea from https://stackoverflow.com/a/52443757
+  file.addTypeAlias({
+    name: 'readonlyP',
+    type: '{ readonly?: undefined }'
+  })
+  file.addTypeAlias({
+    name: 'writeonlyP',
+    type: '{ writeonly?: undefined }'
+  })
+
+  file.addTypeAlias({
+    name: 'Primitive',
+    type: 'string | Function | number | boolean | Symbol | undefined | null | Date'
+  })
+  for (const modifier of ['Readonly', 'Writeonly']) {
+    file.addTypeAlias({
+      name: `No${modifier}Keys`,
+      typeParameters: ['T'],
+      type: (writer) => {
+        writer.writeLine('NonNullable<{')
+        writer.withIndentationLevel(1, () => writer.writeLine(`[P in keyof T]: '${modifier.toLowerCase()}' extends keyof T[P] ? never : P`))
+        writer.writeLine('}[keyof T]>')
+      }
+    })
+    file.addTypeAlias({
+      name: `Without${modifier}`,
+      typeParameters: ['T'],
+      isExported: true,
+      type: (writer) => {
+        writer.newLine()
+        writer.withIndentationLevel(1, () => writer.writeLine('T extends Primitive ? T :'))
+        writer.withIndentationLevel(1, () => writer.writeLine(`T extends Array<infer U> ? Without${modifier}<U>[] :`))
+        writer.withIndentationLevel(1, () => writer.writeLine('{'))
+        writer.withIndentationLevel(2, () => writer.writeLine(`[key in No${modifier}Keys<T>]: T[key] extends infer TP ? Without${modifier}<TP> :`))
+        writer.withIndentationLevel(3, () => writer.writeLine(`never`))
+        writer.withIndentationLevel(1, () => writer.writeLine('}'))
+      }
+    })
+  }
+
   for (const [name, schema] of Object.entries(spec.components?.schemas ?? {})) {
     if ('enum' in schema && schema.enum) {
       file.addEnum({
@@ -26,15 +66,17 @@ export async function generateTypes (
 
 export function generateTypeForSchema (
   schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
-  prefixRef?: string
+  prefixRef?: string,
+  suffixRef?: string
 ): WriterFunctionOrString {
   // Note: we use another to function to avoid needing to pass every arguments for recursive calls
   function generate (
     schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject
   ): WriterFunctionOrString {
     if ('$ref' in schema) {
-      const ref = extractRef(schema.$ref)
-      if (prefixRef) return `${prefixRef}.${ref}`
+      let ref = extractRef(schema.$ref)
+      if (prefixRef) ref = `${prefixRef}${ref}`
+      if (suffixRef) ref += suffixRef
       return ref
     }
     if (schema.allOf) {
@@ -67,8 +109,16 @@ export function generateTypeForSchema (
     if (schema.type === 'object') {
       const props = Object.entries(schema.properties ?? {})
         .reduce((props, [name, prop]) => {
-          const questionMark = schema.required?.includes(name) === false ? '?' : ''
-          props[`'${name}'${questionMark}`] = generate(prop)
+          const questionMark = schema.required?.includes(name) === true ? '' : '?'
+          props[`'${name}'${questionMark}`] = (writer) => {
+            writeWriterOrString(writer, generate(prop))
+            if ('readOnly' in prop && prop.readOnly) {
+              writer.write(' & readonlyP')
+            }
+            if ('writeOnly' in prop && prop.writeOnly) {
+              writer.write(' & writeonlyP')
+            }
+          }
           return props
         }, {} as Record<string, WriterFunctionOrValue>)
       if (schema.additionalProperties && typeof schema.additionalProperties !== 'boolean') {
