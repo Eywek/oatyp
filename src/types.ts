@@ -28,69 +28,75 @@ export function generateTypeForSchema (
   schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
   prefixRef?: string
 ): WriterFunctionOrString {
-  if ('$ref' in schema) {
-    const ref = extractRef(schema.$ref)
-    if (prefixRef) return `${prefixRef}.${ref}`
-    return ref
-  }
-  if (schema.allOf) {
-    const types: WriterFunctionOrString[] = schema.allOf.map((subschema) => {
-      return generateTypeForSchema(subschema, prefixRef)
-    })
-    if (types.length < 2) {
-      return types[0]
+  // Note: we use another to function to avoid needing to pass every arguments for recursive calls
+  function generate (
+    schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject
+  ): WriterFunctionOrString {
+    if ('$ref' in schema) {
+      const ref = extractRef(schema.$ref)
+      if (prefixRef) return `${prefixRef}.${ref}`
+      return ref
     }
-    return Writers.intersectionType(...(types as [WriterFunctionOrString, WriterFunctionOrString, ...WriterFunctionOrString[]]))
-  }
-  if (schema.oneOf) {
-    const types = schema.oneOf.map((subschema) => {
-      return generateTypeForSchema(subschema, prefixRef)
-    }) as [WriterFunctionOrString, WriterFunctionOrString, ...WriterFunctionOrString[]]
-    return Writers.unionType(...types)
-  }
-  if (schema.type === 'array') {
-    const writerOrValue = generateTypeForSchema(schema.items, prefixRef)
-    return (writer) => {
-      writer.write('(')
-      if (typeof writerOrValue === 'function') {
-        writerOrValue(writer)
-      } else {
-        writer.write(writerOrValue)
+    if (schema.allOf) {
+      const types: WriterFunctionOrString[] = schema.allOf.map((subschema) => {
+        return generate(subschema)
+      })
+      if (types.length < 2) {
+        return types[0]
       }
-      writer.write(')[]')
+      return Writers.intersectionType(...(types as [WriterFunctionOrString, WriterFunctionOrString, ...WriterFunctionOrString[]]))
     }
-  }
-  if (schema.type === 'object') {
-    const props = Object.entries(schema.properties ?? {})
-      .reduce((props, [name, prop]) => {
-        const questionMark = schema.required?.includes(name) === false ? '?' : ''
-        props[`'${name}'${questionMark}`] = generateTypeForSchema(prop, prefixRef)
-        return props
-      }, {} as Record<string, WriterFunctionOrValue>)
-    if (schema.additionalProperties && typeof schema.additionalProperties !== 'boolean') {
-      props[`[key: string]`] = generateTypeForSchema(schema.additionalProperties, prefixRef)
+    if (schema.oneOf) {
+      const types = schema.oneOf.map((subschema) => {
+        return generate(subschema)
+      }) as [WriterFunctionOrString, WriterFunctionOrString, ...WriterFunctionOrString[]]
+      return Writers.unionType(...types)
     }
-    return Writers.object(props)
-  }
-  if (schema.type === 'boolean') {
-    return 'boolean'
-  }
-  if (schema.type === 'integer' || schema.type === 'number') {
-    if (schema.enum) {
-      return schema.enum.join(' | ')
+    if (schema.type === 'array') {
+      const writerOrValue = generate(schema.items)
+      return (writer) => {
+        writer.write('(')
+        if (typeof writerOrValue === 'function') {
+          writerOrValue(writer)
+        } else {
+          writer.write(writerOrValue)
+        }
+        writer.write(')[]')
+      }
     }
-    return 'number'
-  }
-  if (schema.format === 'date' || schema.format === 'date-time') {
-    return 'Date'
-  }
-  if (schema.type === 'string') {
-    if (schema.enum) {
-      return schema.enum.map(member => `'${member}'`).join(' | ')
+    if (schema.type === 'object') {
+      const props = Object.entries(schema.properties ?? {})
+        .reduce((props, [name, prop]) => {
+          const questionMark = schema.required?.includes(name) === false ? '?' : ''
+          props[`'${name}'${questionMark}`] = generate(prop)
+          return props
+        }, {} as Record<string, WriterFunctionOrValue>)
+      if (schema.additionalProperties && typeof schema.additionalProperties !== 'boolean') {
+        props[`[key: string]`] = generate(schema.additionalProperties)
+      }
+      return Writers.object(props)
     }
-    return 'string'
+    if (schema.type === 'boolean') {
+      return 'boolean'
+    }
+    if (schema.type === 'integer' || schema.type === 'number') {
+      if (schema.enum) {
+        return schema.enum.join(' | ')
+      }
+      return 'number'
+    }
+    if (schema.format === 'date' || schema.format === 'date-time') {
+      return 'Date'
+    }
+    if (schema.type === 'string') {
+      if (schema.enum) {
+        return schema.enum.map(member => `'${member}'`).join(' | ')
+      }
+      return 'string'
+    }
+    return 'any'
   }
-  return 'any'
+  return generate(schema)
 }
 
 export function writeWriterOrString (
