@@ -5,7 +5,7 @@ import Api from './api'
 const api = new Api({
   baseURL: 'https://api.reelevant.com/v2'
 })
-api.Company.getCompanyDefaults({}, {
+api.Company.getDefaults({}, {
   headers: {
     Cookie: 'access_token=eyJhbGciOi...'
   }

@@ -9,6 +9,7 @@ import { generateApi } from './api'
 export type GenerateConfig = {
   outDir: string,
   openapiFilePath: string,
+  removeTagFromOperationId?: boolean
   tsConfig?: ts.CompilerOptions
 }
 
@@ -38,7 +39,10 @@ export async function generate (config: GenerateConfig) {
   await generateTypes(typesSourceFile, spec)
 
   // Generate api
-  await generateApi(apiSourceFile, spec)
+  await generateApi(apiSourceFile, spec, {
+    removeTagFromOperationId:
+      typeof config.removeTagFromOperationId === 'undefined' ? false : config.removeTagFromOperationId
+  })
 
   // Emit files
   // await project.emit()

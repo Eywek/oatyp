@@ -7,12 +7,14 @@ import path from 'path'
 
 const argv = yargs(process.argv.slice(2)).options({
   out: { type: 'string', default: '.', alias: ['d', 'destination'] },
-  openapiFilePath: { type: 'string', demandOption: true, alias: ['s', 'source'] }
+  openapiFilePath: { type: 'string', demandOption: true, alias: ['s', 'source'] },
+  removeTagFromOperationId: { type: 'boolean', alias: ['r'] }
 }).argv
 
 generate({
   outDir: path.resolve(process.cwd(), argv.out),
-  openapiFilePath: path.resolve(process.cwd(), argv.openapiFilePath)
+  openapiFilePath: path.resolve(process.cwd(), argv.openapiFilePath),
+  removeTagFromOperationId: argv.removeTagFromOperationId
 })
   .then(() => console.log('Done'))
   .catch((err) => {

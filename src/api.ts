@@ -6,7 +6,8 @@ const METHODS_WITH_DATA = ['post', 'patch', 'put']
 
 export async function generateApi (// TODO: Use Omit for readonly / writeonly props
   file: SourceFile,
-  spec: OpenAPIV3.Document
+  spec: OpenAPIV3.Document,
+  opts: { removeTagFromOperationId: boolean }
 ): Promise<void> {
   // Imports
   file.addImportDeclaration({
@@ -135,7 +136,11 @@ export async function generateApi (// TODO: Use Omit for readonly / writeonly pr
         }))
 
         // Add to getter
-        tagObject[camelize(operationId)] = `this.${methodName}.bind(this)`
+        let getterName = methodName
+        if (opts.removeTagFromOperationId) {
+          getterName = getterName.replace(new RegExp(tag, 'gi'), '')
+        }
+        tagObject[getterName] = `this.${methodName}.bind(this)`
       }
     }
   }
