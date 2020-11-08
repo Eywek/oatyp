@@ -96,7 +96,7 @@ export async function generateApi (
         })
         // Add body
         if (METHODS_WITH_DATA.includes(method)) {
-          const bodySchema = (operation.requestBody as OpenAPIV3.RequestBodyObject | undefined)?.content['application/json'].schema
+          const bodySchema = (operation.requestBody as OpenAPIV3.RequestBodyObject | undefined)?.content['application/json']?.schema
           if (bodySchema) {
             methodDeclaration.addParameter({
               name: 'data',
