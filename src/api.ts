@@ -163,7 +163,7 @@ export async function generateApi (
   // Add get accessors with objects
   for (const [tag, object] of classDeclarationMethods.entries()) {
     classDeclaration
-      .addGetAccessor({ name: camelCase(tag) })
+      .addGetAccessor({ name: pascalCase(tag) })
       .setBodyText(
         Writers.returnStatement(Writers.object(object))
       )
@@ -171,7 +171,8 @@ export async function generateApi (
 }
 
 function camelCase (str: string) {
-  return str.replace(/\W+(.)/g, (match, chr) => chr.toUpperCase())
+  const camel = str.replace(/\W+(.)/g, (match, chr) => chr.toUpperCase())
+  return camel.charAt(0).toLowerCase() + camel.slice(1)
 }
 
 function pascalCase (str: string) {
