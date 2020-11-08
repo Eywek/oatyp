@@ -6,3 +6,5 @@ LICENSE
 README.md
 example
 cmd
+tsconfig*
+tslint*
