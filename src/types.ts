@@ -21,21 +21,6 @@ export async function generateTypes (
     name: 'Primitive',
     type: 'string | Function | number | boolean | Symbol | undefined | null | Date'
   })
-  file.addTypeAlias({
-    name: 'UndefinedKeys',
-    typeParameters: ['T'],
-    type: (writer) => {
-      writer.writeLine('NonNullable<{')
-      writer.withIndentationLevel(1, () => writer.writeLine('[key in keyof T]: T[key] extends infer TP ? TP extends undefined ? key : never : never'))
-      writer.writeLine('}[keyof T]>')
-    }
-  })
-  file.addTypeAlias({
-    name: 'NoUndefinedKeys',
-    typeParameters: ['T'],
-    type: 'Exclude<keyof T, UndefinedKeys<T>>'
-  })
-
   for (const modifier of ['Readonly', 'Writeonly']) {
     file.addTypeAlias({
       name: `No${modifier}Keys`,
@@ -47,27 +32,6 @@ export async function generateTypes (
       }
     })
     file.addTypeAlias({
-      name: `Without${modifier}Object`,
-      typeParameters: ['T'],
-      type: (writer) => {
-        writer.writeLine('{')
-        writer.withIndentationLevel(1, () => writer.writeLine(`[key in No${modifier}Keys<T>]: T[key] extends infer TP ? Without${modifier}<TP> :`))
-        writer.withIndentationLevel(2, () => writer.writeLine(`never`))
-        writer.writeLine('}')
-      }
-    })
-    file.addTypeAlias({
-      name: `SubWithout${modifier}`,
-      typeParameters: [{ name: 'T' }, { name: 'U', default: `Without${modifier}Object<T>` }],
-      type: (writer) => {
-        writer.writeLine('{')
-        writer.withIndentationLevel(1, () => writer.writeLine(`[key in NoUndefinedKeys<U>]: U[key]`))
-        writer.writeLine('} & {')
-        writer.withIndentationLevel(1, () => writer.writeLine(`[key in UndefinedKeys<U>]?: U[key]`))
-        writer.writeLine('}')
-      }
-    })
-    file.addTypeAlias({
       name: `Without${modifier}`,
       typeParameters: ['T'],
       isExported: true,
@@ -75,7 +39,10 @@ export async function generateTypes (
         writer.newLine()
         writer.withIndentationLevel(1, () => writer.writeLine('T extends Primitive ? T :'))
         writer.withIndentationLevel(1, () => writer.writeLine(`T extends Array<infer U> ? Without${modifier}<U>[] :`))
-        writer.withIndentationLevel(1, () => writer.writeLine(`SubWithout${modifier}<T>`))
+        writer.withIndentationLevel(1, () => writer.writeLine('{'))
+        writer.withIndentationLevel(2, () => writer.writeLine(`[key in No${modifier}Keys<T>]: T[key] extends infer TP ? Without${modifier}<TP> :`))
+        writer.withIndentationLevel(3, () => writer.writeLine(`never`))
+        writer.withIndentationLevel(1, () => writer.writeLine('}'))
       }
     })
   }
