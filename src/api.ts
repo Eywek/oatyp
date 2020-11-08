@@ -95,12 +95,18 @@ export async function generateApi (
           )
         })
         // Add body
+        let haveBody = false
         if (METHODS_WITH_DATA.includes(method)) {
           const bodySchema = (operation.requestBody as OpenAPIV3.RequestBodyObject | undefined)?.content['application/json']?.schema
           if (bodySchema) {
+            haveBody = true
             methodDeclaration.addParameter({
               name: 'data',
-              type: generateTypeForSchema(bodySchema, 'Types.WithoutReadonly<Types.', '>')
+              type: generateTypeForSchema(bodySchema, 'Types.WithoutReadonly<Types.', '>', {
+                writeonly: true,
+                readonly: false,
+                addReaonlyAndWriteonlyFilters: false
+              })
             })
           }
         }
@@ -114,7 +120,11 @@ export async function generateApi (
         methodDeclaration.setBodyText(Writers.returnStatement((writer) => {
           writer.write(`this.axios.${method}<`)
           // Return type
-          writeWriterOrString(writer, generateTypeForSchema(successResponse.schema!, 'Types.WithoutWriteonly<Types.', '>'))
+          writeWriterOrString(writer, generateTypeForSchema(successResponse.schema!, 'Types.WithoutWriteonly<Types.', '>', {
+            writeonly: false,
+            readonly: true,
+            addReaonlyAndWriteonlyFilters: false
+          }))
           writer.write('>(')
           // Endpoint
           writer.quote(path)
@@ -128,7 +138,11 @@ export async function generateApi (
           }
           // Data
           if (METHODS_WITH_DATA.includes(method)) {
-            writer.write(', data')
+            if (haveBody) {
+              writer.write(', data')
+            } else {
+              writer.write(', {}')
+            }
           }
           // Axios config
           writer.write(', Object.assign({}, { headers: ' + generatePickString(operation, 'header') + ', params: ' + generatePickString(operation, 'query') + ' }, options)')

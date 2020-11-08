@@ -89,7 +89,12 @@ export async function generateTypes (
 export function generateTypeForSchema (
   schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
   prefixRef?: string,
-  suffixRef?: string
+  suffixRef?: string,
+  opts: { readonly: boolean, writeonly: boolean, addReaonlyAndWriteonlyFilters: boolean } = {
+    readonly: true,
+    writeonly: true,
+    addReaonlyAndWriteonlyFilters: true
+  }
 ): WriterFunctionOrString {
   // Note: we use another to function to avoid needing to pass every arguments for recursive calls
   function generate (
@@ -133,12 +138,19 @@ export function generateTypeForSchema (
         .reduce((props, [name, prop]) => {
           const questionMark = schema.required?.includes(name) === true ? '' : '?'
           const isReadonly = 'readOnly' in prop && prop.readOnly
+          const isWriteonly = 'writeOnly' in prop && prop.writeOnly
+          if (opts.readonly === false && isReadonly) {
+            return props
+          }
+          if (opts.writeonly === false && isWriteonly) {
+            return props
+          }
           props[`${isReadonly ? 'readonly ' : ''}'${name}'${questionMark}`] = (writer) => {
             writeWriterOrString(writer, generate(prop))
-            if (isReadonly) {
+            if (opts.addReaonlyAndWriteonlyFilters && isReadonly) {
               writer.write(' & readonlyP') // Used to remove them with mapped types
             }
-            if ('writeOnly' in prop && prop.writeOnly) {
+            if (opts.addReaonlyAndWriteonlyFilters && isWriteonly) {
               writer.write(' & writeonlyP') // Used to remove them with mapped types
             }
           }
