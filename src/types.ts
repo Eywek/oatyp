@@ -16,34 +16,56 @@ export async function generateTypes (
     name: 'writeonlyP',
     type: '{ writeonly?: undefined }'
   })
+  // Hack to display computed types instead of Pick<...>
+  // From https://github.com/microsoft/vscode/issues/94679#issuecomment-611320155
+  file.addTypeAlias({
+    name: 'Id',
+    typeParameters: ['T'],
+    type: '{} & { [P in keyof T]: T[P] }'
+  })
 
   file.addTypeAlias({
     name: 'Primitive',
     type: 'string | Function | number | boolean | Symbol | undefined | null | Date'
   })
+  // From: https://stackoverflow.com/a/63448246
+  file.addTypeAlias({
+    name: 'Without',
+    typeParameters: ['T', 'V', {
+      name: 'WithNevers',
+      default: (writer) => {
+        writer.writeLine('{')
+        writer.withIndentationLevel(1, () => writer.writeLine('[K in keyof T]: Exclude<T[K], undefined> extends V ? never'))
+        writer.withIndentationLevel(1, () => writer.writeLine(': (T[K] extends Record<string, unknown> ? Without<T[K], V> : T[K])'))
+        writer.write('}')
+      }
+    }],
+    type: (writer) => {
+      writer.writeLine('Id<Pick<WithNevers, {')
+      writer.withIndentationLevel(1, () => writer.writeLine('[K in keyof WithNevers]: WithNevers[K] extends never ? never : K'))
+      writer.writeLine('}[keyof WithNevers]>>')
+    }
+  })
   for (const modifier of ['Readonly', 'Writeonly']) {
     file.addTypeAlias({
-      name: `No${modifier}Keys`,
+      name: `Remove${modifier}`,
       typeParameters: ['T'],
       type: (writer) => {
-        writer.writeLine('NonNullable<{')
-        writer.withIndentationLevel(1, () => writer.writeLine(`[P in keyof T]: '${modifier.toLowerCase()}' extends keyof T[P] ? never : P`))
-        writer.writeLine('}[keyof T]>')
+        writer.newLine()
+        writer.withIndentationLevel(1, () => writer.writeLine('T extends Primitive ? T :'))
+        writer.withIndentationLevel(1, () => writer.writeLine(`T extends Array<infer U> ? Remove${modifier}<U>[] :`))
+        writer.withIndentationLevel(1, () => writer.writeLine('{'))
+        writer.withIndentationLevel(2, () => writer.writeLine(`[key in keyof T]: '${modifier.toLowerCase()}' extends keyof T[key] ? never :`))
+        writer.withIndentationLevel(3, () => writer.writeLine(`T[key] extends infer TP ? Remove${modifier}<TP> :`))
+        writer.withIndentationLevel(3, () => writer.writeLine(`never`))
+        writer.withIndentationLevel(1, () => writer.writeLine('}'))
       }
     })
     file.addTypeAlias({
       name: `Without${modifier}`,
       typeParameters: ['T'],
       isExported: true,
-      type: (writer) => {
-        writer.newLine()
-        writer.withIndentationLevel(1, () => writer.writeLine('T extends Primitive ? T :'))
-        writer.withIndentationLevel(1, () => writer.writeLine(`T extends Array<infer U> ? Without${modifier}<U>[] :`))
-        writer.withIndentationLevel(1, () => writer.writeLine('{'))
-        writer.withIndentationLevel(2, () => writer.writeLine(`[key in No${modifier}Keys<T>]: T[key] extends infer TP ? Without${modifier}<TP> :`))
-        writer.withIndentationLevel(3, () => writer.writeLine(`never`))
-        writer.withIndentationLevel(1, () => writer.writeLine('}'))
-      }
+      type: `Without<Remove${modifier}<T>, never>`
     })
   }
 
@@ -110,13 +132,14 @@ export function generateTypeForSchema (
       const props = Object.entries(schema.properties ?? {})
         .reduce((props, [name, prop]) => {
           const questionMark = schema.required?.includes(name) === true ? '' : '?'
-          props[`'${name}'${questionMark}`] = (writer) => {
+          const isReadonly = 'readOnly' in prop && prop.readOnly
+          props[`${isReadonly ? 'readonly ' : ''}'${name}'${questionMark}`] = (writer) => {
             writeWriterOrString(writer, generate(prop))
-            if ('readOnly' in prop && prop.readOnly) {
-              writer.write(' & readonlyP')
+            if (isReadonly) {
+              writer.write(' & readonlyP') // Used to remove them with mapped types
             }
             if ('writeOnly' in prop && prop.writeOnly) {
-              writer.write(' & writeonlyP')
+              writer.write(' & writeonlyP') // Used to remove them with mapped types
             }
           }
           return props
