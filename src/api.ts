@@ -19,6 +19,10 @@ export async function generateApi (
     namespaceImport: 'Types',
     moduleSpecifier: './definitions'
   })
+  // Exports types
+  file.addExportDeclaration({
+    moduleSpecifier: './definitions'
+  })
 
   // Utils
   file
@@ -40,7 +44,7 @@ export async function generateApi (
   classDeclaration
     .addProperty({
       name: 'axios',
-      scope: Scope.Private,
+      scope: Scope.Public,
       type: 'AxiosInstance'
     })
   classDeclaration
@@ -89,7 +93,8 @@ export async function generateApi (
           type: Writers.object(
             (operation.parameters ?? []).reduce((params, param) => {
               const config = param as OpenAPIV3.ParameterObject
-              params[`'${config.name}'`] = generateTypeForSchema(config.schema ?? {}, 'Types.')
+              const questionToken = config.required === false ? '?' : ''
+              params[`'${config.name}'${questionToken}`] = generateTypeForSchema(config.schema ?? {}, 'Types.')
               return params
             }, {} as Record<string, WriterFunctionOrValue>)
           )
