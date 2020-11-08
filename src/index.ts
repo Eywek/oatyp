@@ -7,8 +7,8 @@ import { generateTypes } from './types'
 import { generateApi } from './api'
 
 export type GenerateConfig = {
-  outDir: string,
-  openapiFilePath: string,
+  outDir: string
+  openapiFilePath: string
   removeTagFromOperationId?: boolean
   tsConfig?: ts.CompilerOptions
 }
@@ -43,9 +43,6 @@ export async function generate (config: GenerateConfig) {
     removeTagFromOperationId:
       typeof config.removeTagFromOperationId === 'undefined' ? false : config.removeTagFromOperationId
   })
-
-  // Emit files
-  // await project.emit()
 
   // Emit typescript files
   const fileSystem = project.getFileSystem()

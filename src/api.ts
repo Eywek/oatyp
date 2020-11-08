@@ -4,7 +4,7 @@ import { generateTypeForSchema, writeWriterOrString } from './types'
 
 const METHODS_WITH_DATA = ['post', 'patch', 'put']
 
-export async function generateApi (// TODO: Use Omit for readonly / writeonly props
+export async function generateApi (
   file: SourceFile,
   spec: OpenAPIV3.Document,
   opts: { removeTagFromOperationId: boolean }
@@ -63,7 +63,8 @@ export async function generateApi (// TODO: Use Omit for readonly / writeonly pr
       // We add the operation method for each tag
       // by default we fallback to `default` tag if not provided
       const tags = operation.tags ?? ['default']
-      for (const tag of tags) {
+      for (const rawTag of tags) {
+        const tag = pascalCase(rawTag)
         // Initialize object for tag
         if (classDeclarationMethods.has(tag) === false) {
           classDeclarationMethods.set(tag, {})
@@ -76,7 +77,7 @@ export async function generateApi (// TODO: Use Omit for readonly / writeonly pr
         const successResponse = successResponseObject.content!['application/json']
 
         // Handle operation method
-        const methodName = camelize(operationId)
+        const methodName = camelCase(operationId)
         const methodDeclaration = classDeclaration
           .addMethod({
             scope: Scope.Private,
@@ -148,15 +149,20 @@ export async function generateApi (// TODO: Use Omit for readonly / writeonly pr
   // Add get accessors with objects
   for (const [tag, object] of classDeclarationMethods.entries()) {
     classDeclaration
-      .addGetAccessor({ name: camelize(tag) })
+      .addGetAccessor({ name: camelCase(tag) })
       .setBodyText(
         Writers.returnStatement(Writers.object(object))
       )
   }
 }
 
-function camelize (str: string) {
+function camelCase (str: string) {
   return str.replace(/\W+(.)/g, (match, chr) => chr.toUpperCase())
+}
+
+function pascalCase (str: string) {
+  const camel = camelCase(str)
+  return camel.charAt(0).toUpperCase() + camel.slice(1)
 }
 
 function generatePickString (operation: OpenAPIV3.OperationObject, paramsType: 'query' | 'header' | 'path') {

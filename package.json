@@ -13,6 +13,9 @@
     "test": "NODE_V8_COVERAGE=./coverage ava",
     "posttest": "c8 --all report -x example -x build -x node_modules --temp-directory=./coverage/ --report-dir=./coverage -r json"
   },
+  "bin": {
+    "oatyp": "./build/cmd/oatyp.js"
+  },
   "dependencies": {
     "openapi-types": "^7.0.1",
     "ts-morph": "^8.1.2",
