@@ -71,11 +71,21 @@ export async function generateTypes (
 
   for (const [name, schema] of Object.entries(spec.components?.schemas ?? {})) {
     if ('enum' in schema && schema.enum) {
-      file.addEnum({
-        isExported: true,
-        name,
-        members: schema.enum.map((val) => ({ name: String(val).toUpperCase(), value: val }))
-      })
+      if (typeof schema.enum[0] === 'number') {
+        file.addTypeAlias({
+          isExported: true,
+          name,
+          type: schema.enum.length > 1 ?
+            Writers.unionType(...(schema.enum.map(m => String(m)) as [string, string, ...string[]])) :
+            String(schema.enum[0])
+        })
+      } else {
+        file.addEnum({
+          isExported: true,
+          name,
+          members: schema.enum.map((val) => ({ name: val.toUpperCase(), value: val }))
+        })
+      }
       continue
     }
     file.addTypeAlias({
