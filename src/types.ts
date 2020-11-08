@@ -74,7 +74,7 @@ export async function generateTypes (
       file.addEnum({
         isExported: true,
         name,
-        members: schema.enum.map((val) => ({ name: val.toUpperCase(), value: val }))
+        members: schema.enum.map((val) => ({ name: String(val).toUpperCase(), value: val }))
       })
       continue
     }
