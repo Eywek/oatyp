@@ -863,7 +863,15 @@ components:
                     type: string
                     readOnly: true
                 companyId:
-                    type: string
+                    oneOf:
+                      -
+                          type: string
+                          enum:
+                              - foo
+                      -
+                          type: string
+                          enum:
+                              - bar
                     readOnly: true
                 name:
                     type: string

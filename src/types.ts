@@ -156,12 +156,15 @@ export function generateTypeForSchema (
             return props
           }
           props[`${isReadonly ? 'readonly ' : ''}'${name}'${questionMark}`] = (writer) => {
+            if (opts.addReaonlyAndWriteonlyFilters && (isReadonly || isWriteonly)) {
+              writer.write('(') // we need to surround with parenthesis for unions (e.g. (string | number) & readOnly)
+            }
             writeWriterOrString(writer, generate(prop))
             if (opts.addReaonlyAndWriteonlyFilters && isReadonly) {
-              writer.write(' & readonlyP') // Used to remove them with mapped types
+              writer.write(') & readonlyP') // Used to remove them with mapped types
             }
             if (opts.addReaonlyAndWriteonlyFilters && isWriteonly) {
-              writer.write(' & writeonlyP') // Used to remove them with mapped types
+              writer.write(') & writeonlyP') // Used to remove them with mapped types
             }
           }
           return props
