@@ -175,6 +175,9 @@ export function generateTypeForSchema (
       return Writers.object(props)
     }
     if (schema.type === 'boolean') {
+      if (schema.enum) {
+        return schema.enum.join(' | ')
+      }
       return 'boolean'
     }
     if (schema.type === 'integer' || schema.type === 'number') {
