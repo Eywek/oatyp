@@ -66,7 +66,7 @@ export async function generateApi (
       if (operation === undefined || operationId === undefined) continue
       // We add the operation method for each tag
       // by default we fallback to `default` tag if not provided
-      const tags = operation.tags ?? ['default']
+      const tags = operation.tags && operation.tags.length > 0 ? operation.tags : ['default']
       for (const rawTag of tags) {
         const tag = pascalCase(rawTag)
         // Initialize object for tag
