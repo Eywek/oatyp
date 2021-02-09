@@ -10,11 +10,11 @@ export async function generateTypes (
   // Idea from https://stackoverflow.com/a/52443757
   file.addTypeAlias({
     name: 'readonlyP',
-    type: '{ readonly?: undefined }'
+    type: "{ readonly?: '__readonly' }"
   })
   file.addTypeAlias({
     name: 'writeonlyP',
-    type: '{ writeonly?: undefined }'
+    type: "{ writeonly?: '__writeonly' }"
   })
   // Hack to display computed types instead of Pick<...>
   // From https://github.com/microsoft/vscode/issues/94679#issuecomment-611320155
@@ -55,7 +55,9 @@ export async function generateTypes (
         writer.withIndentationLevel(1, () => writer.writeLine('T extends Primitive ? T :'))
         writer.withIndentationLevel(1, () => writer.writeLine(`T extends Array<infer U> ? Remove${modifier}<U>[] :`))
         writer.withIndentationLevel(1, () => writer.writeLine('{'))
-        writer.withIndentationLevel(2, () => writer.writeLine(`[key in keyof T]: '${modifier.toLowerCase()}' extends keyof T[key] ? never :`))
+        writer.withIndentationLevel(2, () => writer.writeLine(`[key in keyof T]: '${modifier.toLowerCase()}' extends keyof T[key] ?`))
+        // we also need to check the value to avoid matching Record<string, any>
+        writer.withIndentationLevel(4, () => writer.writeLine(`T[key]['${modifier.toLowerCase()}'] extends '__${modifier.toLowerCase()}' | undefined ? never : Remove${modifier}<T[key]> :`))
         writer.withIndentationLevel(3, () => writer.writeLine(`T[key] extends infer TP ? Remove${modifier}<TP> :`))
         writer.withIndentationLevel(3, () => writer.writeLine(`never`))
         writer.withIndentationLevel(1, () => writer.writeLine('}'))
