@@ -50,12 +50,12 @@ export async function generateApi (
   classDeclaration
     .addConstructor({
       parameters: [{
-        name: 'config',
-        type: 'AxiosRequestConfig'
+        name: 'configOrInstance',
+        type: 'AxiosRequestConfig | AxiosInstance'
       }]
     })
     .setBodyText((writer) => {
-      writer.write('this.axios = axios.create(config)')
+      writer.write('this.axios = \'interceptors\' in configOrInstance ? configOrInstance : axios.create(configOrInstance)')
     })
 
   // Operations
