@@ -7,7 +7,7 @@ const METHODS_WITH_DATA = ['post', 'patch', 'put']
 export async function generateApi (
   file: SourceFile,
   spec: OpenAPIV3.Document,
-  opts: { removeTagFromOperationId: boolean }
+  opts: { removeTagFromOperationId: boolean, addReadonlyWriteonlyModifiers: boolean }
 ): Promise<void> {
   // Imports
   file.addImportDeclaration({
@@ -107,11 +107,16 @@ export async function generateApi (
             haveBody = true
             methodDeclaration.addParameter({
               name: 'data',
-              type: generateTypeForSchema(bodySchema, 'Types.WithoutReadonly<Types.', '>', {
-                writeonly: true,
-                readonly: false,
-                addReaonlyAndWriteonlyFilters: false
-              })
+              type: generateTypeForSchema(
+                bodySchema,
+                opts.addReadonlyWriteonlyModifiers ? 'Types.WithoutReadonly<Types.' : 'Types.',
+                opts.addReadonlyWriteonlyModifiers ? '>' : '',
+                {
+                  writeonly: true,
+                  readonly: false,
+                  addReaonlyAndWriteonlyFilters: false
+                }
+              )
             })
           }
         }
@@ -125,11 +130,17 @@ export async function generateApi (
         methodDeclaration.setBodyText(Writers.returnStatement((writer) => {
           writer.write(`this.axios.${method}<`)
           // Return type
-          writeWriterOrString(writer, generateTypeForSchema(successResponse.schema!, 'Types.WithoutWriteonly<Types.', '>', {
-            writeonly: false,
-            readonly: true,
-            addReaonlyAndWriteonlyFilters: false
-          }))
+          writeWriterOrString(
+            writer,
+            generateTypeForSchema(successResponse.schema!,
+              opts.addReadonlyWriteonlyModifiers ? 'Types.WithoutWriteonly<Types.' : 'Types.',
+              opts.addReadonlyWriteonlyModifiers ? '>' : '', {
+                writeonly: false,
+                readonly: true,
+                addReaonlyAndWriteonlyFilters: false
+              }
+            )
+          )
           writer.write('>(')
           // Endpoint
           writer.quote(path)
