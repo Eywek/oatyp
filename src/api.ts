@@ -32,7 +32,7 @@ export async function generateApi (
       typeParameters: [{ name: 'T' }, { name: 'K', constraint: 'keyof T' }]
     })
     .setReturnType('Pick<T, K>')
-    .setBodyText('const ret: any = {};\nkeys.forEach(key => {\n    ret[key] = obj[key];\n})\nreturn ret;')
+    .setBodyText('const ret: any = {};\nkeys.forEach(key => {\n    if (key in obj)\n        ret[key] = obj[key];\n})\nreturn ret;')
 
   // Init class
   const classDeclaration = file.addClass({
