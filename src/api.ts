@@ -111,7 +111,7 @@ export async function generateApi (
                 bodySchema,
                 spec,
                 'Types.',
-                true,
+                opts.addReadonlyWriteonlyModifiers,
                 {
                   writeonly: true,
                   readonly: false,
@@ -135,7 +135,7 @@ export async function generateApi (
             writer,
             generateTypeForSchema(successResponse.schema!, spec,
               'Types.',
-              true, {
+              opts.addReadonlyWriteonlyModifiers, {
                 writeonly: false,
                 readonly: true,
                 addReaonlyAndWriteonlyFilters: false

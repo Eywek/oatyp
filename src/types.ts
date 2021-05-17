@@ -105,7 +105,7 @@ export function generateTypeForSchema (
   schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
   spec: OpenAPIV3.Document,
   prefixRef?: string,
-  addReadonlyWriteonlyPrefix?: true,
+  addReadonlyWriteonlyPrefix?: boolean,
   opts: { readonly: boolean, writeonly: boolean, addReaonlyAndWriteonlyFilters: boolean } = {
     readonly: true,
     writeonly: true,
