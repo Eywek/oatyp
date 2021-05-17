@@ -94,7 +94,7 @@ export async function generateApi (
             (operation.parameters ?? []).reduce((params, param) => {
               const config = param as OpenAPIV3.ParameterObject
               const questionToken = config.required === false ? '?' : ''
-              params[`'${config.name}'${questionToken}`] = generateTypeForSchema(config.schema ?? {}, 'Types.')
+              params[`'${config.name}'${questionToken}`] = generateTypeForSchema(config.schema ?? {}, spec, 'Types.')
               return params
             }, {} as Record<string, WriterFunctionOrValue>)
           )
@@ -109,8 +109,9 @@ export async function generateApi (
               name: 'data',
               type: generateTypeForSchema(
                 bodySchema,
-                opts.addReadonlyWriteonlyModifiers ? 'Types.WithoutReadonly<Types.' : 'Types.',
-                opts.addReadonlyWriteonlyModifiers ? '>' : '',
+                spec,
+                'Types.',
+                true,
                 {
                   writeonly: true,
                   readonly: false,
@@ -132,9 +133,9 @@ export async function generateApi (
           // Return type
           writeWriterOrString(
             writer,
-            generateTypeForSchema(successResponse.schema!,
-              opts.addReadonlyWriteonlyModifiers ? 'Types.WithoutWriteonly<Types.' : 'Types.',
-              opts.addReadonlyWriteonlyModifiers ? '>' : '', {
+            generateTypeForSchema(successResponse.schema!, spec,
+              'Types.',
+              true, {
                 writeonly: false,
                 readonly: true,
                 addReaonlyAndWriteonlyFilters: false

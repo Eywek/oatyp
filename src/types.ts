@@ -96,15 +96,16 @@ export async function generateTypes (
     file.addTypeAlias({
       isExported: true,
       name: stringifyName(name),
-      type: generateTypeForSchema(schema)
+      type: generateTypeForSchema(schema, spec)
     })
   }
 }
 
 export function generateTypeForSchema (
   schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
+  spec: OpenAPIV3.Document,
   prefixRef?: string,
-  suffixRef?: string,
+  addReadonlyWriteonlyPrefix?: true,
   opts: { readonly: boolean, writeonly: boolean, addReaonlyAndWriteonlyFilters: boolean } = {
     readonly: true,
     writeonly: true,
@@ -118,7 +119,13 @@ export function generateTypeForSchema (
     if ('$ref' in schema) {
       let ref = extractRef(schema.$ref)
       if (prefixRef) ref = `${prefixRef}${ref}`
-      if (suffixRef) ref += suffixRef
+      // we don't add prefixes with enums (Types.WithoutReadonly<EnumName> doesn't work)
+      const schemaForRef = retrieveRef(schema.$ref, spec)
+      const refIsEnum = Array.isArray(schemaForRef.enum)
+      if (addReadonlyWriteonlyPrefix && refIsEnum === false) {
+        const typeName = opts.readonly === true ? 'WithoutWriteonly' : 'WithoutReadonly'
+        ref = `${prefixRef ?? ''}${typeName}<${ref}>`
+      }
       return ref
     }
     if (schema.allOf) {
@@ -218,6 +225,14 @@ export function writeWriterOrString (
 
 function extractRef (ref: string) {
   return stringifyName(ref.substr('#/components/schemas/'.length))
+}
+
+function retrieveRef (ref: string, spec: OpenAPIV3.Document): OpenAPIV3.SchemaObject {
+  const schema = spec.components!.schemas![ref.substr('#/components/schemas/'.length)]
+  if ('$ref' in schema) {
+    return retrieveRef(schema.$ref, spec)
+  }
+  return schema
 }
 
 function stringifyName (name: string) {
