@@ -213,6 +213,9 @@ export function generateTypeForSchema (
 }
 
 function nullable (type: string, nullable: boolean = false) {
+  if (nullable === false) {
+    return type
+  }
   return `${type} | null`
 }
 
