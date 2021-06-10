@@ -190,26 +190,30 @@ export function generateTypeForSchema (
       if (schema.enum) {
         return schema.enum.join(' | ')
       }
-      return 'boolean'
+      return nullable('boolean', schema.nullable)
     }
     if (schema.type === 'integer' || schema.type === 'number') {
       if (schema.enum) {
         return schema.enum.join(' | ')
       }
-      return 'number'
+      return nullable('number', schema.nullable)
     }
     if (schema.format === 'date' || schema.format === 'date-time') {
-      return 'Date'
+      return nullable('Date', schema.nullable)
     }
     if (schema.type === 'string') {
       if (schema.enum) {
         return schema.enum.map(member => `'${member}'`).join(' | ')
       }
-      return 'string'
+      return nullable('string', schema.nullable)
     }
-    return 'any'
+    return nullable('any', schema.nullable)
   }
   return generate(schema)
+}
+
+function nullable (type: string, nullable: boolean = false) {
+  return `${type} | null`
 }
 
 export function writeWriterOrString (
