@@ -1,4 +1,4 @@
-import { CodeBlockWriter, PropertyNamedNode, SourceFile, WriterFunction, WriterFunctionOrValue, Writers } from 'ts-morph'
+import { CodeBlockWriter, SourceFile, WriterFunction, WriterFunctionOrValue, Writers } from 'ts-morph'
 import { OpenAPIV3 } from 'openapi-types'
 
 export type WriterFunctionOrString = string | WriterFunction
