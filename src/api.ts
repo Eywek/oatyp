@@ -57,6 +57,7 @@ interface PathOperationsAnalysisContext {
 }
 
 interface OperationAnalysisContext extends PathOperationsAnalysisContext {
+  operationId: string;
   method: string;
 }
 
@@ -69,10 +70,15 @@ function analyzePathOperations(operations: OpenAPIV3.PathItemObject, context: Pa
 
   for (const method of HTTP_METHODS) {
     const operation = operations[method] as OpenAPIV3.OperationObject;
-    const operationId = operation?.operationId; // Must be defined
-    if (operation === undefined || operationId === undefined) continue;
+    if (!operation) continue;
+    let operationId = operation.operationId;
+    if (!operationId) {
+      // generate an operationId
+      operationId = context.path.split("/").slice(-1).join("") + "_" + method;
+    }
     pathOperations[method] = analyzeOperation(operation, {
       ...context,
+      operationId,
       method,
     });
   }
@@ -97,7 +103,7 @@ function analyzeOperationTag(operation: OpenAPIV3.OperationObject, context: Oper
   const responses = operation.responses;
   if (typeof responses === "undefined" || Object.keys(responses).length === 0) return null;
 
-  const operationId = operation.operationId!;
+  const operationId = context.operationId;
   const methodName = camelCase(operationId);
   const tag = pascalCase(context.rawTag);
 
@@ -137,11 +143,11 @@ function analyzeOperationTag(operation: OpenAPIV3.OperationObject, context: Oper
     ]?.schema;
     analysis.hasBody = !!analysis.bodySchema;
     if (analysis.bodySchema) {
-      trackReferences(analysis.bodySchema, analysis.referencedTypes, context.spec)
+      trackReferences(analysis.bodySchema, analysis.referencedTypes, context.spec);
       analysis.bodyType = generateTypeForSchema(
         analysis.bodySchema,
         context.spec,
-        "",//"Types.",
+        "", //"Types.",
         context.options.addReadonlyWriteonlyModifiers,
         {
           writeonly: true,
@@ -159,7 +165,7 @@ function analyzeOperationTag(operation: OpenAPIV3.OperationObject, context: Oper
       analysis.returnType = generateTypeForSchema(
         successSchema,
         context.spec,
-        "",//"Types.",
+        "", //"Types.",
         context.options.addReadonlyWriteonlyModifiers,
         {
           writeonly: false,
@@ -177,7 +183,8 @@ function analyzeOperationTag(operation: OpenAPIV3.OperationObject, context: Oper
         analysis.returnType = "string";
         break;
       default:
-        debugger;
+        // Unknown type
+        analysis.returnType = "unknown";
         break;
     }
   } else {
@@ -332,18 +339,17 @@ export async function generateApi(file: SourceFile, spec: OpenAPIV3.Document, op
   });
   if (referencedTypes.length) {
     file.addImportDeclaration({
-      // namespaceImport: "Types",
       moduleSpecifier: "./definitions",
       namedImports: referencedTypes,
       isTypeOnly: true,
     });
   }
   // Exports types
-  file.addExportDeclaration({
-    namedExports: referencedTypes,
-    isTypeOnly: true
-  });
-  file.indent(file.getChildSyntaxListOrThrow().getChildCount(),3);
+  // Disabled due to indent issues
+  // file.addExportDeclaration({
+  //   namedExports: referencedTypes,
+  //   isTypeOnly: true
+  // });
 
   // Init class
   const classDeclaration = file.addClass({
@@ -406,6 +412,10 @@ export async function generateApi(file: SourceFile, spec: OpenAPIV3.Document, op
   }
 
   // Utils
+  const needsPickFunction = pathsAnalysis.some((e) =>
+    Object.values(e.methods).some((m) => m.some((o) => o.hasHeaderParams || o.hasQueryParams))
+  );
+  if (needsPickFunction) {
   file
     .addFunction({
       name: "pick",
@@ -428,17 +438,21 @@ export async function generateApi(file: SourceFile, spec: OpenAPIV3.Document, op
       writer.writeLine("});");
       writer.writeLine("return ret;");
     });
+  }
 }
 
-function trackReferences(referencedSchema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject, referencedTypes: Map<string, OpenAPIV3.SchemaObject>, spec: OpenAPIV3.Document) {
+function trackReferences(
+  referencedSchema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
+  referencedTypes: Map<string, OpenAPIV3.SchemaObject>,
+  spec: OpenAPIV3.Document
+) {
   var schemas = getSchemas(referencedSchema, spec);
 
-  function handleSchema(schema: OpenAPIV3.SchemaObject | (OpenAPIV3.SchemaObject|string)[] | string | null) {
+  function handleSchema(schema: OpenAPIV3.SchemaObject | (OpenAPIV3.SchemaObject | string)[] | string | null) {
     if (!schema) return;
-    if (typeof schema=== "string") {
+    if (typeof schema === "string") {
       referencedTypes.set(schema, {});
-    }
-    else if (Array.isArray(schema)) {
+    } else if (Array.isArray(schema)) {
       schema.forEach(handleSchema);
     } else {
       referencedTypes.set(schema.type ?? "basdasd", schema);
@@ -447,59 +461,63 @@ function trackReferences(referencedSchema: OpenAPIV3.ReferenceObject | OpenAPIV3
   handleSchema(schemas);
 }
 
- function getSchemas (
+function getSchemas(
   schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
-  spec: OpenAPIV3.Document,
+  spec: OpenAPIV3.Document
 ): string[] | string | null {
   function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
     return value !== null && value !== undefined;
   }
   // Note: we use another to function to avoid needing to pass every arguments for recursive calls
-  function generate (
+  function generate(
     schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject
   ): string[] | string | null {
-    if ('$ref' in schema) {
+    if ("$ref" in schema) {
       return extractRef(schema.$ref);
     }
     if (schema.allOf) {
-      const types = schema.allOf.flatMap((subschema) => {
-        return generate(subschema)
-      }).filter(notEmpty);
+      const types = schema.allOf
+        .flatMap((subschema) => {
+          return generate(subschema);
+        })
+        .filter(notEmpty);
       if (types.length < 2) {
-        return types[0]
+        return types[0];
       }
       return types;
     }
     if (schema.oneOf) {
-      const types = schema.oneOf.flatMap((subschema) => {
-        return generate(subschema)
-      }).filter(notEmpty);
+      const types = schema.oneOf
+        .flatMap((subschema) => {
+          return generate(subschema);
+        })
+        .filter(notEmpty);
       if (types.length < 2) {
-        return types[0]
+        return types[0];
       }
       return types;
     }
-    if (schema.type === 'array') {
-      return generate(schema.items)
+    if (schema.type === "array") {
+      return generate(schema.items);
     }
-    if (schema.type === 'object') {
+    if (schema.type === "object") {
       return null;
     }
-    if (schema.type === 'boolean') {
+    if (schema.type === "boolean") {
       return null;
     }
-    if (schema.type === 'integer' || schema.type === 'number') {
+    if (schema.type === "integer" || schema.type === "number") {
       return null;
     }
-    if (schema.format === 'date' || schema.format === 'date-time') {
+    if (schema.format === "date" || schema.format === "date-time") {
       return null;
     }
-    if (schema.type === 'string') {
+    if (schema.type === "string") {
       return null;
     }
     return null;
   }
-  return generate(schema)
+  return generate(schema);
 }
 
 function camelCase(str: string) {
