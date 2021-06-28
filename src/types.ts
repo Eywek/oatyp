@@ -1,7 +1,7 @@
-import { CodeBlockWriter, SourceFile, WriterFunction, WriterFunctionOrValue, Writers } from 'ts-morph'
+import { CodeBlockWriter, PropertyNamedNode, SourceFile, WriterFunction, WriterFunctionOrValue, Writers } from 'ts-morph'
 import { OpenAPIV3 } from 'openapi-types'
 
-type WriterFunctionOrString = string | WriterFunction
+export type WriterFunctionOrString = string | WriterFunction
 
 export async function generateTypes (
   file: SourceFile,
@@ -141,6 +141,9 @@ export function generateTypeForSchema (
       const types = schema.oneOf.map((subschema) => {
         return generate(subschema)
       }) as [WriterFunctionOrString, WriterFunctionOrString, ...WriterFunctionOrString[]]
+      if (types.length < 2) {
+        return types[0]
+      }
       return Writers.unionType(...types)
     }
     if (schema.type === 'array') {
@@ -230,11 +233,11 @@ export function writeWriterOrString (
   }
 }
 
-function extractRef (ref: string) {
+export function extractRef (ref: string) {
   return stringifyName(ref.substr('#/components/schemas/'.length))
 }
 
-function retrieveRef (ref: string, spec: OpenAPIV3.Document): OpenAPIV3.SchemaObject {
+export function retrieveRef (ref: string, spec: OpenAPIV3.Document): OpenAPIV3.SchemaObject {
   const schema = spec.components!.schemas![ref.substr('#/components/schemas/'.length)]
   if ('$ref' in schema) {
     return retrieveRef(schema.$ref, spec)
