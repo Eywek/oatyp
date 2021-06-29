@@ -108,6 +108,8 @@ export async function generate (config: GenerateConfig) {
     if (!await fileSystem.directoryExists(outputPathDirectory)) {
       await fileSystem.mkdir(outputPathDirectory)
     }
+    // Do a format at the end to fix any indent issues
+    sourceFile.formatText()
     await fileSystem.writeFile(path.join(config.outDir, relativePath), '/* tslint:disable */\n/* eslint-disable */\n\n' + sourceFile.getFullText())
   }
 }
