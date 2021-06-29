@@ -103,10 +103,10 @@ export async function generate (config: GenerateConfig) {
   const fileSystem = project.getFileSystem()
   for (const sourceFile of [typesSourceFile, apiSourceFile]) {
     const relativePath = sourceFile.getRelativePathTo(sourceFile)
-    const outputPath = path.join(config.outDir, relativePath);
-    const outputPathDirectory = path.dirname(outputPath);
+    const outputPath = path.join(config.outDir, relativePath)
+    const outputPathDirectory = path.dirname(outputPath)
     if (!await fileSystem.directoryExists(outputPathDirectory)) {
-      await fileSystem.mkdir(outputPathDirectory);
+      await fileSystem.mkdir(outputPathDirectory)
     }
     await fileSystem.writeFile(path.join(config.outDir, relativePath), '/* tslint:disable */\n/* eslint-disable */\n\n' + sourceFile.getFullText())
   }

@@ -1,111 +1,111 @@
-import { MethodDeclaration, Scope, SourceFile, WriterFunctionOrValue, Writers } from "ts-morph";
-import { OpenAPIV3 } from "openapi-types";
-import { generateTypeForSchema, writeWriterOrString, extractRef } from "./types";
-import type { WriterFunctionOrString } from "./types";
+import { MethodDeclaration, Scope, SourceFile, WriterFunctionOrValue, Writers } from 'ts-morph'
+import { OpenAPIV3 } from 'openapi-types'
+import { generateTypeForSchema, writeWriterOrString, extractRef } from './types'
+import type { WriterFunctionOrString } from './types'
 
-const METHODS_WITH_DATA: { [name: string]: boolean } = { post: true, patch: true, put: true };
+const METHODS_WITH_DATA: { [name: string]: boolean } = { post: true, patch: true, put: true }
 const HTTP_METHODS: (keyof OpenAPIV3.PathItemObject)[] = [
-  "get",
-  "post",
-  "put",
-  "patch",
-  "delete",
-  "head",
-  "options",
-  "trace",
-];
+  'get',
+  'post',
+  'put',
+  'patch',
+  'delete',
+  'head',
+  'options',
+  'trace'
+]
 
 export interface GenerateApiOptions {
-  removeTagFromOperationId: boolean;
-  addReadonlyWriteonlyModifiers: boolean;
+  removeTagFromOperationId: boolean
+  addReadonlyWriteonlyModifiers: boolean
 }
 
 interface AnalyzedPathItemObject {
-  methods: { [method: string]: AnalyzedOperationObject[] };
+  methods: { [method: string]: AnalyzedOperationObject[] }
 }
 
 interface AnalyzedOperationObject {
-  tag: string;
-  rawTag: string;
-  operation: OpenAPIV3.OperationObject;
-  operationId: string;
-  operationPath: string;
-  operationMethod: string;
-  methodName: string;
-  normalizedGetterName: string;
-  pathParams: OpenAPIV3.ParameterObject[];
-  headerParams: OpenAPIV3.ParameterObject[];
-  queryParams: OpenAPIV3.ParameterObject[];
-  params: OpenAPIV3.ParameterObject[];
-  hasPathParams: boolean;
-  hasHeaderParams: boolean;
-  hasQueryParams: boolean;
-  hasParams: boolean;
-  isMethodWithData: boolean;
-  hasBody: boolean;
-  bodySchema?: OpenAPIV3.ReferenceObject | OpenAPIV3.SchemaObject;
-  bodyType: WriterFunctionOrString | null;
-  returnType: WriterFunctionOrString | null;
-  paramTypes: Record<string, WriterFunctionOrValue>;
-  referencedTypes: Map<string, OpenAPIV3.SchemaObject>;
+  tag: string
+  rawTag: string
+  operation: OpenAPIV3.OperationObject
+  operationId: string
+  operationPath: string
+  operationMethod: string
+  methodName: string
+  normalizedGetterName: string
+  pathParams: OpenAPIV3.ParameterObject[]
+  headerParams: OpenAPIV3.ParameterObject[]
+  queryParams: OpenAPIV3.ParameterObject[]
+  params: OpenAPIV3.ParameterObject[]
+  hasPathParams: boolean
+  hasHeaderParams: boolean
+  hasQueryParams: boolean
+  hasParams: boolean
+  isMethodWithData: boolean
+  hasBody: boolean
+  bodySchema?: OpenAPIV3.ReferenceObject | OpenAPIV3.SchemaObject
+  bodyType: WriterFunctionOrString | null
+  returnType: WriterFunctionOrString | null
+  paramTypes: Record<string, WriterFunctionOrValue>
+  referencedTypes: Map<string, OpenAPIV3.SchemaObject>
 }
 
 interface PathOperationsAnalysisContext {
-  spec: OpenAPIV3.Document;
-  options: GenerateApiOptions;
-  path: string;
+  spec: OpenAPIV3.Document
+  options: GenerateApiOptions
+  path: string
 }
 
 interface OperationAnalysisContext extends PathOperationsAnalysisContext {
-  operationId: string;
-  method: string;
+  operationId: string
+  method: string
 }
 
 interface OperationTagAnalysisContext extends OperationAnalysisContext {
-  rawTag: string;
+  rawTag: string
 }
 
-function analyzePathOperations(operations: OpenAPIV3.PathItemObject, context: PathOperationsAnalysisContext) {
-  const pathOperations: { [method: string]: AnalyzedOperationObject[] } = {};
+function analyzePathOperations (operations: OpenAPIV3.PathItemObject, context: PathOperationsAnalysisContext) {
+  const pathOperations: { [method: string]: AnalyzedOperationObject[] } = {}
 
   for (const method of HTTP_METHODS) {
-    const operation = operations[method] as OpenAPIV3.OperationObject;
-    if (!operation) continue;
-    let operationId = operation.operationId;
+    const operation = operations[method] as OpenAPIV3.OperationObject
+    if (!operation) continue
+    let operationId = operation.operationId
     if (!operationId) {
       // generate an operationId
-      operationId = context.path.split("/").slice(-1).join("") + "_" + method;
+      operationId = context.path.split('/').slice(-1).join('') + '_' + method
     }
     pathOperations[method] = analyzeOperation(operation, {
       ...context,
       operationId,
-      method,
-    });
+      method
+    })
   }
 
   const result: AnalyzedPathItemObject = {
-    methods: pathOperations,
-  };
-  return result;
+    methods: pathOperations
+  }
+  return result
 }
 
-function analyzeOperation(operation: OpenAPIV3.OperationObject, context: OperationAnalysisContext) {
+function analyzeOperation (operation: OpenAPIV3.OperationObject, context: OperationAnalysisContext) {
   // We add the operation method for each tag
   // by default we fallback to `default` tag if not provided
-  const tags = operation.tags && operation.tags.length > 0 ? operation.tags : ["default"];
+  const tags = operation.tags && operation.tags.length > 0 ? operation.tags : ['default']
 
   return tags
     .map((rawTag) => analyzeOperationTag(operation, { ...context, rawTag }))
-    .filter((v) => v != null) as AnalyzedOperationObject[];
+    .filter((v) => !!v) as AnalyzedOperationObject[]
 }
 
-function analyzeOperationTag(operation: OpenAPIV3.OperationObject, context: OperationTagAnalysisContext) {
-  const responses = operation.responses;
-  if (typeof responses === "undefined" || Object.keys(responses).length === 0) return null;
+function analyzeOperationTag (operation: OpenAPIV3.OperationObject, context: OperationTagAnalysisContext) {
+  const responses = operation.responses
+  if (typeof responses === 'undefined' || Object.keys(responses).length === 0) return null
 
-  const operationId = context.operationId;
-  const methodName = camelCase(operationId);
-  const tag = pascalCase(context.rawTag);
+  const operationId = context.operationId
+  const methodName = camelCase(operationId)
+  const tag = pascalCase(context.rawTag)
 
   const analysis: AnalyzedOperationObject = {
     rawTag: context.rawTag,
@@ -115,7 +115,7 @@ function analyzeOperationTag(operation: OpenAPIV3.OperationObject, context: Oper
     operationPath: context.path,
     operationMethod: context.method,
     methodName,
-    normalizedGetterName: methodName.replace(new RegExp(tag + "_?", "gi"), ""),
+    normalizedGetterName: methodName.replace(new RegExp(tag + '_?', 'gi'), ''),
     pathParams: [],
     headerParams: [],
     queryParams: [],
@@ -129,220 +129,220 @@ function analyzeOperationTag(operation: OpenAPIV3.OperationObject, context: Oper
     returnType: null,
     bodyType: null,
     paramTypes: {} as Record<string, WriterFunctionOrValue>,
-    referencedTypes: new Map<string, OpenAPIV3.SchemaObject>(),
-  };
+    referencedTypes: new Map<string, OpenAPIV3.SchemaObject>()
+  }
 
   const [, successResponseObject] = responses
     ? (Object.entries(responses)[0] as [string, OpenAPIV3.ResponseObject])
-    : [null, { content: null }];
-  const successResponse = successResponseObject.content && successResponseObject.content["application/json"];
+    : [null, { content: null }]
+  const successResponse = successResponseObject.content && successResponseObject.content['application/json']
 
   if (analysis.isMethodWithData) {
     analysis.bodySchema = (operation.requestBody as OpenAPIV3.RequestBodyObject | undefined)?.content[
-      "application/json"
-    ]?.schema;
-    analysis.hasBody = !!analysis.bodySchema;
+      'application/json'
+    ]?.schema
+    analysis.hasBody = !!analysis.bodySchema
     if (analysis.bodySchema) {
-      trackReferences(analysis.bodySchema, analysis.referencedTypes, context.spec);
+      trackReferences(analysis.bodySchema, analysis.referencedTypes, context.spec)
       analysis.bodyType = generateTypeForSchema(
         analysis.bodySchema,
         context.spec,
-        "", //"Types.",
+        '', // "Types.",
         context.options.addReadonlyWriteonlyModifiers,
         {
           writeonly: true,
           readonly: false,
-          addReaonlyAndWriteonlyFilters: false,
+          addReaonlyAndWriteonlyFilters: false
         }
-      );
+      )
     }
   }
 
   if (successResponse && successResponse.schema) {
-    const successSchema = successResponse.schema as OpenAPIV3.SchemaObject;
+    const successSchema = successResponse.schema as OpenAPIV3.SchemaObject
     if (successSchema.type) {
-      trackReferences(successSchema, analysis.referencedTypes, context.spec);
+      trackReferences(successSchema, analysis.referencedTypes, context.spec)
       analysis.returnType = generateTypeForSchema(
         successSchema,
         context.spec,
-        "", //"Types.",
+        '', // "Types.",
         context.options.addReadonlyWriteonlyModifiers,
         {
           writeonly: false,
           readonly: true,
-          addReaonlyAndWriteonlyFilters: false,
+          addReaonlyAndWriteonlyFilters: false
         }
-      );
+      )
     } else {
       // There's a schema but no type?
     }
   } else if (successResponseObject.content) {
-    const responseMimeType = Object.keys(successResponseObject.content)[0];
+    const responseMimeType = Object.keys(successResponseObject.content)[0]
     switch (responseMimeType) {
-      case "text/plain":
-        analysis.returnType = "string";
-        break;
+      case 'text/plain':
+        analysis.returnType = 'string'
+        break
       default:
         // Unknown type
-        analysis.returnType = "unknown";
-        break;
+        analysis.returnType = 'unknown'
+        break
     }
   } else {
     // No response content
-    analysis.returnType = "void";
+    analysis.returnType = 'void'
   }
 
   for (const param of operation.parameters ?? []) {
-    const config = param as OpenAPIV3.ParameterObject;
-    if (!config.in) continue;
-    analysis.params.push(config);
+    const config = param as OpenAPIV3.ParameterObject
+    if (!config.in) continue
+    analysis.params.push(config)
     switch (config.in) {
-      case "path":
-        analysis.pathParams!.push(config);
-        break;
-      case "header":
-        analysis.headerParams!.push(config);
-        break;
-      case "query":
-        analysis.queryParams!.push(config);
-        break;
+      case 'path':
+        analysis.pathParams.push(config)
+        break
+      case 'header':
+        analysis.headerParams.push(config)
+        break
+      case 'query':
+        analysis.queryParams.push(config)
+        break
     }
-    const paramSchema = config.schema as OpenAPIV3.SchemaObject;
+    const paramSchema = config.schema as OpenAPIV3.SchemaObject
     if (paramSchema) {
-      analysis.paramTypes[config.name] = generateTypeForSchema(paramSchema, context.spec, ""); //"Types.");
+      analysis.paramTypes[config.name] = generateTypeForSchema(paramSchema, context.spec, '') // "Types.");
       // if (paramSchema.type) analysis.referencedTypes.set(paramSchema.type, paramSchema);
-    }
-    // No idea what type this is
-    else analysis.paramTypes[config.name] = "unknown";
+    } else analysis.paramTypes[config.name] = 'unknown'
   }
-  analysis.hasPathParams = !!(analysis.pathParams && analysis.pathParams.length);
-  analysis.hasHeaderParams = !!(analysis.headerParams && analysis.headerParams.length);
-  analysis.hasQueryParams = !!(analysis.queryParams && analysis.queryParams.length);
-  analysis.hasParams = analysis.hasPathParams || analysis.hasHeaderParams || analysis.hasQueryParams;
+  analysis.hasPathParams = !!(analysis.pathParams && analysis.pathParams.length)
+  analysis.hasHeaderParams = !!(analysis.headerParams && analysis.headerParams.length)
+  analysis.hasQueryParams = !!(analysis.queryParams && analysis.queryParams.length)
+  analysis.hasParams = analysis.hasPathParams || analysis.hasHeaderParams || analysis.hasQueryParams
 
-  return analysis;
+  return analysis
 }
 
-function getAllReferencedTypes(analyzedPaths: AnalyzedPathItemObject[]) {
-  const referencedTypeNames: Record<string, boolean> = {};
+function getAllReferencedTypes (analyzedPaths: AnalyzedPathItemObject[]) {
+  const referencedTypeNames: Record<string, boolean> = {}
   analyzedPaths.forEach((path) => {
     Object.values(path.methods).forEach((methodOperations) => {
       methodOperations.forEach((analysis) => {
         Array.from(analysis.referencedTypes.keys()).forEach((key) => {
-          referencedTypeNames[key] = true;
-        });
-      });
-    });
-  });
-  return Object.keys(referencedTypeNames);
+          referencedTypeNames[key] = true
+        })
+      })
+    })
+  })
+  return Object.keys(referencedTypeNames)
 }
 
-function populateOperationMethod(methodDeclaration: MethodDeclaration, analysis: AnalyzedOperationObject) {
+function populateOperationMethod (methodDeclaration: MethodDeclaration, analysis: AnalyzedOperationObject) {
   // Add parameters
   if (analysis.hasParams) {
     const paramsProperties = analysis.params.reduce((params, param) => {
-      const paramType = analysis.paramTypes[param.name];
-      const questionToken = param.required === false ? "?" : "";
-      params[`${param.name}${questionToken}`] = paramType;
-      return params;
-    }, {} as Record<string, WriterFunctionOrValue>);
+      const paramType = analysis.paramTypes[param.name]
+      const questionToken = param.required === false ? '?' : ''
+      params[`${param.name}${questionToken}`] = paramType
+      return params
+    }, {} as Record<string, WriterFunctionOrValue>)
     methodDeclaration.addParameter({
-      name: "params",
-      type: Writers.object(paramsProperties),
-    });
+      name: 'params',
+      type: Writers.object(paramsProperties)
+    })
   }
   // Add body
   if (analysis.bodyType) {
     methodDeclaration.addParameter({
-      name: "data",
-      type: analysis.bodyType,
-    });
+      name: 'data',
+      type: analysis.bodyType
+    })
   }
   // Add axios config options params
   methodDeclaration.addParameter({
-    name: "options",
-    type: "AxiosRequestConfig",
-    hasQuestionToken: true,
-  });
+    name: 'options',
+    type: 'AxiosRequestConfig',
+    hasQuestionToken: true
+  })
   // Axios call
   methodDeclaration.setBodyText(
     Writers.returnStatement((writer) => {
       if (analysis.returnType) {
-        writer.write(`this.axios.${analysis.operationMethod}<`);
-        writeWriterOrString(writer, analysis.returnType);
-        writer.write(">(\n");
+        writer.write(`this.axios.${analysis.operationMethod}<`)
+        writeWriterOrString(writer, analysis.returnType)
+        writer.write('>(\n')
       } else {
-        writer.write(`this.axios.${analysis.operationMethod}(\n`);
+        writer.write(`this.axios.${analysis.operationMethod}(\n`)
       }
       // Endpoint
       writer.indent(() => {
-        writer.quote(analysis.operationPath);
+        writer.quote(analysis.operationPath)
         if (analysis.hasPathParams) {
           // We need to replace url parameters in the endpoint
-          for (const param of analysis.pathParams!) {
-            writer.write(`.replace(/{${param.name}}/, String(params[`).quote(param.name).write("]))");
+          for (const param of analysis.pathParams) {
+            writer.write(`.replace(/{${param.name}}/, String(params[`).quote(param.name).write(']))')
           }
         }
         // Data
         if (analysis.isMethodWithData) {
           if (analysis.bodyType) {
-            writer.write(", data");
+            writer.write(', data')
           } else {
-            writer.write(", {}");
+            writer.write(', {}')
           }
         }
         // Axios config
-        const needsAssign = analysis.hasHeaderParams || analysis.hasQueryParams;
+        const needsAssign = analysis.hasHeaderParams || analysis.hasQueryParams
         if (needsAssign) {
           writer
-            .write(",")
-            .writeLine("Object.assign(")
+            .write(',')
+            .writeLine('Object.assign(')
             .indent(() => {
               writer
-                .writeLine("{},")
+                .writeLine('{},')
                 .inlineBlock(() => {
-                  if (analysis.hasHeaderParams)
-                    writer.writeLine("headers: " + generatePickString(analysis.headerParams!) + ",");
-                  if (analysis.hasQueryParams)
-                    writer.writeLine("params: " + generatePickString(analysis.queryParams!) + ",");
+                  if (analysis.hasHeaderParams) {
+                    writer.writeLine('headers: ' + generatePickString(analysis.headerParams) + ',')
+                  }
+                  if (analysis.hasQueryParams) {
+                    writer.writeLine('params: ' + generatePickString(analysis.queryParams) + ',')
+                  }
                 })
-                .write(",")
-                .writeLine("options");
-            });
-          writer.writeLine(")"); // Assign ending paren
+                .write(',')
+                .writeLine('options')
+            })
+          writer.writeLine(')') // Assign ending paren
         } else {
-          writer.write(", options");
+          writer.write(', options')
         }
-      });
-      writer.write(")"); // Call ending paren
+      })
+      writer.write(')') // Call ending paren
     })
-  );
+  )
 }
 
-export async function generateApi(file: SourceFile, spec: OpenAPIV3.Document, opts: GenerateApiOptions): Promise<void> {
+export async function generateApi (file: SourceFile, spec: OpenAPIV3.Document, opts: GenerateApiOptions): Promise<void> {
   // Analyze all the operations in advance
   const pathsAnalysis = Object.entries(spec.paths).map(([path, operations]) => {
     return analyzePathOperations(operations, {
       spec,
       options: opts,
-      path,
-    });
-  });
+      path
+    })
+  })
 
-  var referencedTypes = getAllReferencedTypes(pathsAnalysis);
+  const referencedTypes = getAllReferencedTypes(pathsAnalysis)
 
   // Imports
   file.addImportDeclaration({
-    defaultImport: "axios",
-    namedImports: ["AxiosInstance", "AxiosRequestConfig"],
-    moduleSpecifier: "axios",
-  });
+    defaultImport: 'axios',
+    namedImports: ['AxiosInstance', 'AxiosRequestConfig'],
+    moduleSpecifier: 'axios'
+  })
   if (referencedTypes.length) {
     file.addImportDeclaration({
-      moduleSpecifier: "./definitions",
+      moduleSpecifier: './definitions',
       namedImports: referencedTypes,
-      isTypeOnly: true,
-    });
+      isTypeOnly: true
+    })
   }
   // Exports types
   // Disabled due to indent issues
@@ -353,31 +353,31 @@ export async function generateApi(file: SourceFile, spec: OpenAPIV3.Document, op
 
   // Init class
   const classDeclaration = file.addClass({
-    isDefaultExport: true,
-  });
-  const classDeclarationMethods = new Map<string, Record<string, WriterFunctionOrValue>>();
+    isDefaultExport: true
+  })
+  const classDeclarationMethods = new Map<string, Record<string, WriterFunctionOrValue>>()
 
   // Constructor
   classDeclaration.addProperty({
-    name: "axios",
+    name: 'axios',
     scope: Scope.Public,
-    type: "AxiosInstance",
-  });
+    type: 'AxiosInstance'
+  })
   classDeclaration
     .addConstructor({
       parameters: [
         {
-          name: "configOrInstance",
-          type: "AxiosRequestConfig | AxiosInstance",
-        },
-      ],
+          name: 'configOrInstance',
+          type: 'AxiosRequestConfig | AxiosInstance'
+        }
+      ]
     })
     .setBodyText((writer) => {
       writer.write("this.axios = 'interceptors' in configOrInstance").indent(() => {
-        writer.writeLine("? configOrInstance");
-        writer.writeLine(": axios.create(configOrInstance)");
-      });
-    });
+        writer.writeLine('? configOrInstance')
+        writer.writeLine(': axios.create(configOrInstance)')
+      })
+    })
 
   // Operations
   for (const operationsAnalysis of pathsAnalysis) {
@@ -385,21 +385,21 @@ export async function generateApi(file: SourceFile, spec: OpenAPIV3.Document, op
       for (const analysis of analyzedOperations) {
         // Initialize object for tag
         if (classDeclarationMethods.has(analysis.tag) === false) {
-          classDeclarationMethods.set(analysis.tag, {});
+          classDeclarationMethods.set(analysis.tag, {})
         }
-        const tagObject = classDeclarationMethods.get(analysis.tag)!;
+        const tagObject = classDeclarationMethods.get(analysis.tag)!
 
         // Handle operation method
         const methodDeclaration = classDeclaration.addMethod({
           scope: Scope.Private,
-          name: analysis.methodName,
-        });
+          name: analysis.methodName
+        })
 
-        populateOperationMethod(methodDeclaration, analysis);
+        populateOperationMethod(methodDeclaration, analysis)
 
         // Add to getter
-        let getterName = opts.removeTagFromOperationId ? analysis.normalizedGetterName : analysis.methodName;
-        tagObject[getterName] = `this.${analysis.methodName}.bind(this)`;
+        const getterName = opts.removeTagFromOperationId ? analysis.normalizedGetterName : analysis.methodName
+        tagObject[getterName] = `this.${analysis.methodName}.bind(this)`
       }
     }
   }
@@ -408,129 +408,129 @@ export async function generateApi(file: SourceFile, spec: OpenAPIV3.Document, op
   for (const [tag, object] of classDeclarationMethods.entries()) {
     classDeclaration
       .addGetAccessor({ name: pascalCase(tag) })
-      .setBodyText(Writers.returnStatement(Writers.object(object)));
+      .setBodyText(Writers.returnStatement(Writers.object(object)))
   }
 
   // Utils
   const needsPickFunction = pathsAnalysis.some((e) =>
     Object.values(e.methods).some((m) => m.some((o) => o.hasHeaderParams || o.hasQueryParams))
-  );
+  )
   if (needsPickFunction) {
-  file
+    file
     .addFunction({
-      name: "pick",
+      name: 'pick',
       parameters: [
-        { name: "obj", type: "T" },
-        { name: "keys", type: "K[]", isRestParameter: true },
+        { name: 'obj', type: 'T' },
+        { name: 'keys', type: 'K[]', isRestParameter: true }
       ],
-      typeParameters: [{ name: "T" }, { name: "K", constraint: "keyof T" }],
+      typeParameters: [{ name: 'T' }, { name: 'K', constraint: 'keyof T' }]
     })
-    .setReturnType("Pick<T, K>")
+    .setReturnType('Pick<T, K>')
     .setBodyText((writer) => {
-      writer.writeLine("const ret: Pick<T, K> = {} as Pick<T, K>;");
-      writer.write("keys.forEach(key => {");
+      writer.writeLine('const ret: Pick<T, K> = {} as Pick<T, K>;')
+      writer.write('keys.forEach(key => {')
       writer.indent(() => {
-        writer.writeLine("if (key in obj)");
+        writer.writeLine('if (key in obj)')
         writer.indent(() => {
-          writer.writeLine("ret[key] = obj[key];");
-        });
-      });
-      writer.writeLine("});");
-      writer.writeLine("return ret;");
-    });
+          writer.writeLine('ret[key] = obj[key];')
+        })
+      })
+      writer.writeLine('});')
+      writer.writeLine('return ret;')
+    })
   }
 }
 
-function trackReferences(
+function trackReferences (
   referencedSchema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
   referencedTypes: Map<string, OpenAPIV3.SchemaObject>,
   spec: OpenAPIV3.Document
 ) {
-  var schemas = getSchemas(referencedSchema, spec);
+  const schemas = getSchemas(referencedSchema, spec)
 
-  function handleSchema(schema: OpenAPIV3.SchemaObject | (OpenAPIV3.SchemaObject | string)[] | string | null) {
-    if (!schema) return;
-    if (typeof schema === "string") {
-      referencedTypes.set(schema, {});
+  function handleSchema (schema: OpenAPIV3.SchemaObject | (OpenAPIV3.SchemaObject | string)[] | string | null) {
+    if (!schema) return
+    if (typeof schema === 'string') {
+      referencedTypes.set(schema, {})
     } else if (Array.isArray(schema)) {
-      schema.forEach(handleSchema);
+      schema.forEach(handleSchema)
     } else {
-      referencedTypes.set(schema.type ?? "basdasd", schema);
+      referencedTypes.set(schema.type ?? 'basdasd', schema)
     }
   }
-  handleSchema(schemas);
+  handleSchema(schemas)
 }
 
-function getSchemas(
+function getSchemas (
   schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
   spec: OpenAPIV3.Document
 ): string[] | string | null {
-  function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
-    return value !== null && value !== undefined;
+  function notEmpty<TValue> (value: TValue | null | undefined): value is TValue {
+    return value !== null && value !== undefined
   }
   // Note: we use another to function to avoid needing to pass every arguments for recursive calls
-  function generate(
+  function generate (
     schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject
   ): string[] | string | null {
-    if ("$ref" in schema) {
-      return extractRef(schema.$ref);
+    if ('$ref' in schema) {
+      return extractRef(schema.$ref)
     }
     if (schema.allOf) {
       const types = schema.allOf
         .flatMap((subschema) => {
-          return generate(subschema);
+          return generate(subschema)
         })
-        .filter(notEmpty);
+        .filter(notEmpty)
       if (types.length < 2) {
-        return types[0];
+        return types[0]
       }
-      return types;
+      return types
     }
     if (schema.oneOf) {
       const types = schema.oneOf
         .flatMap((subschema) => {
-          return generate(subschema);
+          return generate(subschema)
         })
-        .filter(notEmpty);
+        .filter(notEmpty)
       if (types.length < 2) {
-        return types[0];
+        return types[0]
       }
-      return types;
+      return types
     }
-    if (schema.type === "array") {
-      return generate(schema.items);
+    if (schema.type === 'array') {
+      return generate(schema.items)
     }
-    if (schema.type === "object") {
-      return null;
+    if (schema.type === 'object') {
+      return null
     }
-    if (schema.type === "boolean") {
-      return null;
+    if (schema.type === 'boolean') {
+      return null
     }
-    if (schema.type === "integer" || schema.type === "number") {
-      return null;
+    if (schema.type === 'integer' || schema.type === 'number') {
+      return null
     }
-    if (schema.format === "date" || schema.format === "date-time") {
-      return null;
+    if (schema.format === 'date' || schema.format === 'date-time') {
+      return null
     }
-    if (schema.type === "string") {
-      return null;
+    if (schema.type === 'string') {
+      return null
     }
-    return null;
+    return null
   }
-  return generate(schema);
+  return generate(schema)
 }
 
-function camelCase(str: string) {
-  const camel = str.replace(/\W+(.)/g, (match, chr) => chr.toUpperCase());
-  return camel.charAt(0).toLowerCase() + camel.slice(1);
+function camelCase (str: string) {
+  const camel = str.replace(/\W+(.)/g, (match, chr) => chr.toUpperCase())
+  return camel.charAt(0).toLowerCase() + camel.slice(1)
 }
 
-function pascalCase(str: string) {
-  const camel = camelCase(str);
-  return camel.charAt(0).toUpperCase() + camel.slice(1);
+function pascalCase (str: string) {
+  const camel = camelCase(str)
+  return camel.charAt(0).toUpperCase() + camel.slice(1)
 }
 
-function generatePickString(params: OpenAPIV3.ParameterObject[]) {
-  if (!params || params.length === 0) return "{}";
-  return `pick(params, "${params.map((p) => (p as OpenAPIV3.ParameterObject).name).join('", "')}")`;
+function generatePickString (params: OpenAPIV3.ParameterObject[]) {
+  if (!params || params.length === 0) return '{}'
+  return `pick(params, "${params.map(p => p.name).join('", "')}")`
 }
