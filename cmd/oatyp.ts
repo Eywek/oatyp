@@ -11,12 +11,17 @@ const argv = yargs(process.argv.slice(2)).options({
   removeTagFromOperationId: { type: 'boolean', alias: ['r'] }
 }).argv
 
+const startTime = Date.now()
+
 generate({
   outDir: path.resolve(process.cwd(), argv.out),
   openapiFilePath: path.resolve(process.cwd(), argv.openapiFilePath),
   removeTagFromOperationId: argv.removeTagFromOperationId
 })
-  .then(() => console.log('Done'))
+  .then(() => {
+    const totalTime = Date.now() - startTime
+    console.log(`Done. (${totalTime} ms)`)
+  })
   .catch((err) => {
     console.error('Unable to generate:', err)
     process.exit(1)
