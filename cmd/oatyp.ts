@@ -23,6 +23,6 @@ generate({
     console.log(`Done. (${totalTime} ms)`)
   })
   .catch((err) => {
-    console.error('Unable to generate:', err)
+    console.error('Unable to generate:', err && err.stack || err)
     process.exit(1)
   })
