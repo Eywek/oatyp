@@ -1,6 +1,6 @@
 import { Project, ts } from 'ts-morph'
 import path from 'path'
-import YAML from 'yamljs'
+import YAML from 'js-yaml'
 import { OpenAPIV3 } from 'openapi-types'
 import fs from 'fs'
 import { generateTypes } from './types'
@@ -54,7 +54,9 @@ export async function generate (config: GenerateConfig) {
   const ext = path.extname(config.openapiFilePath)
   let spec: OpenAPIV3.Document
   if (ext === '.yaml' || ext === '.yml') {
-    spec = YAML.load(config.openapiFilePath)
+    spec = YAML.load(fs.readFileSync(config.openapiFilePath, 'utf8'), {
+      filename: config.openapiFilePath
+    }) as any
   } else {
     const fileContent = await fs.promises.readFile(config.openapiFilePath)
     spec = JSON.parse(fileContent.toString())

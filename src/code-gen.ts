@@ -1,8 +1,19 @@
 import type { OpenAPIV3 } from 'openapi-types'
-import { WriterFunctionOrValue, Writers } from 'ts-morph'
-import { writeWriterOrString } from './writer-utils'
+import { printNode, ts } from 'ts-morph'
 import CodeFormatting from './code-formatting'
-import type { WriterFunctionOrString } from './writer-utils'
+
+interface GenerateTypeContext {
+  spec: OpenAPIV3.Document
+  prefixRef?: string
+  addReadonlyWriteonlyPrefix?: boolean
+  opts: GenerateTypeNodeOptions
+}
+
+export interface GenerateTypeNodeOptions {
+  readonly: boolean
+  writeonly: boolean
+  addReadonlyAndWriteonlyFilters: boolean
+}
 
 export default class CodeGen {
   static generatePickString (params: OpenAPIV3.ParameterObject[]) {
@@ -10,117 +21,206 @@ export default class CodeGen {
     return `pick(params, "${params.map((p) => p.name).join('", "')}")`
   }
 
+  static nullableNodeType (node: ts.TypeNode, nullable: boolean): ts.TypeNode {
+    if (!nullable) return node
+    return ts.factory.createUnionTypeNode([
+      node,
+      ts.factory.createLiteralTypeNode(ts.factory.createNull())
+    ])
+  }
+
+  static generatePropertySignature (
+    schema: OpenAPIV3.NonArraySchemaObject,
+    propName: string,
+    propType: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
+    ctx: GenerateTypeContext
+  ) {
+    const isRequired = schema.required?.includes(propName) === true ? '' : '?'
+    const isReadonly = 'readOnly' in propType && propType.readOnly
+    const isWriteonly = 'writeOnly' in propType && propType.writeOnly
+
+    const modifiers = []
+    if (isReadonly) {
+      modifiers.push(ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword))
+    }
+    const name = CodeFormatting.isSafeIdentifier(propName)
+      ? ts.factory.createIdentifier(propName)
+      : ts.factory.createStringLiteral(propName)
+    const questionToken = !isRequired
+      ? ts.factory.createToken(ts.SyntaxKind.QuestionToken)
+      : undefined
+    let type: ts.TypeNode | undefined = CodeGen.generateTypeNodeForSchema(propType, ctx)
+
+    if (ctx.opts.readonly === false && isReadonly) {
+      return null
+    }
+    if (ctx.opts.writeonly === false && isWriteonly) {
+      return null
+    }
+    if (ctx.opts.addReadonlyAndWriteonlyFilters) {
+      if (isReadonly) {
+        type = ts.factory.createIntersectionTypeNode([
+          ts.factory.createParenthesizedType(type),
+          ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('readonlyP'))
+        ])
+      } else if (isWriteonly) {
+        type = ts.factory.createIntersectionTypeNode([
+          ts.factory.createParenthesizedType(type),
+          ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('writeonlyP'))
+        ])
+      }
+    }
+
+    return ts.factory.createPropertySignature(
+      modifiers,
+      name,
+      questionToken,
+      type
+    )
+  }
+
+  static generateTypeLiteral (schema: OpenAPIV3.NonArraySchemaObject, ctx: GenerateTypeContext)
+  : ts.TypeLiteralNode {
+    const propSignatures = (
+      Object.entries(schema.properties ?? {})
+        .map(([name, prop]) => CodeGen.generatePropertySignature(schema, name, prop, ctx))
+        .filter(v => !!v) // remove nulls
+    ) as ts.PropertySignature[]
+
+    return ts.factory.createTypeLiteralNode(propSignatures)
+  }
+
+  // Note: we use another to static to avoid needing to pass every arguments for recursive calls
+  static generateTypeNodeForSchema (
+    schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
+    ctx: GenerateTypeContext
+  ): ts.TypeNode {
+    if ('$ref' in schema) {
+      let ref = CodeFormatting.extractRef(schema.$ref)
+      if (ctx.prefixRef) ref = `${ctx.prefixRef}${ref}`
+      // we don't add prefixes with enums (Types.WithoutReadonly<EnumName> doesn't work)
+      const schemaForRef = CodeFormatting.retrieveRef(schema.$ref, ctx.spec)
+      const refIsEnum = Array.isArray(schemaForRef.enum)
+
+      if (ctx.addReadonlyWriteonlyPrefix && refIsEnum === false) {
+        const typeName = ctx.opts.readonly === true ? 'WithoutWriteonly' : 'WithoutReadonly'
+        const typeNameNode = ctx.prefixRef
+          // Add namespace prefix if needed
+          ? ts.factory.createQualifiedName(
+            ts.factory.createIdentifier(ctx.prefixRef),
+            ts.factory.createIdentifier(typeName)
+          )
+          : ts.factory.createIdentifier(typeName)
+        return ts.factory.createTypeReferenceNode(
+          typeNameNode,
+          [ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(ref))]
+        )
+      }
+      return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(ref))
+    }
+    if (schema.allOf) {
+      const types = schema.allOf.map(s => CodeGen.generateTypeNodeForSchema(s, ctx))
+      if (types.length < 2) {
+        return types[0]
+      }
+      return ts.factory.createIntersectionTypeNode(types)
+    }
+    if (schema.oneOf) {
+      const types = schema.oneOf.map(s => CodeGen.generateTypeNodeForSchema(s, ctx))
+      if (types.length < 2) {
+        return types[0]
+      }
+      return ts.factory.createUnionTypeNode(types)
+    }
+
+    if (schema.type === 'array') {
+      if (!schema.items) {
+        return ts.factory.createArrayTypeNode(
+          ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+        )
+      }
+      return ts.factory.createArrayTypeNode(CodeGen.generateTypeNodeForSchema(schema.items, ctx))
+    }
+
+    if (schema.type === 'object') {
+      return CodeGen.generateTypeLiteral(schema, ctx)
+    }
+
+    if (schema.type === 'boolean') {
+      if (schema.enum) {
+        return ts.factory.createUnionTypeNode(
+          schema.enum.map(name =>
+            ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(name))
+          )
+        )
+      }
+      return CodeGen.nullableNodeType(
+        ts.factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword),
+        !!schema.nullable
+      )
+    }
+
+    if (schema.type === 'integer' || schema.type === 'number') {
+      if (schema.enum) {
+        return ts.factory.createUnionTypeNode(
+          schema.enum.map(name =>
+            ts.factory.createLiteralTypeNode(ts.factory.createNumericLiteral(name))
+          )
+        )
+      }
+      return CodeGen.nullableNodeType(
+        ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword),
+        !!schema.nullable
+      )
+    }
+
+    if (schema.format === 'date' || schema.format === 'date-time') {
+      return CodeGen.nullableNodeType(
+        ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Date')),
+        !!schema.nullable
+      )
+    }
+
+    if (schema.type === 'string') {
+      if (schema.enum) {
+        const enumNodes = schema.enum.map(name =>
+          ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(name))
+        )
+        return enumNodes.length === 1
+          ? enumNodes[0]
+          : ts.factory.createUnionTypeNode(enumNodes)
+      }
+      return CodeGen.nullableNodeType(
+        ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+        !!schema.nullable
+      )
+    }
+
+    return CodeGen.nullableNodeType(
+      ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
+      !!schema.nullable
+    )
+  }
+
   static generateTypeForSchema (
     schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
     spec: OpenAPIV3.Document,
     prefixRef?: string,
     addReadonlyWriteonlyPrefix?: boolean,
-    opts: { readonly: boolean, writeonly: boolean, addReaonlyAndWriteonlyFilters: boolean } = {
+    opts: GenerateTypeNodeOptions = {
       readonly: true,
       writeonly: true,
-      addReaonlyAndWriteonlyFilters: true
+      addReadonlyAndWriteonlyFilters: true
     }
-  ): WriterFunctionOrString {
-    // Note: we use another to function to avoid needing to pass every arguments for recursive calls
-    function generate (
-      schema: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject
-    ): WriterFunctionOrString {
-      if ('$ref' in schema) {
-        let ref = CodeFormatting.extractRef(schema.$ref)
-        if (prefixRef) ref = `${prefixRef}${ref}`
-        // we don't add prefixes with enums (Types.WithoutReadonly<EnumName> doesn't work)
-        const schemaForRef = CodeFormatting.retrieveRef(schema.$ref, spec)
-        const refIsEnum = Array.isArray(schemaForRef.enum)
-        if (addReadonlyWriteonlyPrefix && refIsEnum === false) {
-          const typeName = opts.readonly === true ? 'WithoutWriteonly' : 'WithoutReadonly'
-          ref = `${prefixRef ?? ''}${typeName}<${ref}>`
-        }
-        return ref
-      }
-      if (schema.allOf) {
-        const types: WriterFunctionOrString[] = schema.allOf.map((subschema) => {
-          return generate(subschema)
-        })
-        if (types.length < 2) {
-          return types[0]
-        }
-        return Writers.intersectionType(...(types as [WriterFunctionOrString, WriterFunctionOrString, ...WriterFunctionOrString[]]))
-      }
-      if (schema.oneOf) {
-        const types = schema.oneOf.map((subschema) => {
-          return generate(subschema)
-        }) as [WriterFunctionOrString, WriterFunctionOrString, ...WriterFunctionOrString[]]
-        if (types.length < 2) {
-          return types[0]
-        }
-        return Writers.unionType(...types)
-      }
-      if (schema.type === 'array') {
-        const writerOrValue = generate(schema.items)
-        return (writer) => {
-          writer.write('(')
-          if (typeof writerOrValue === 'function') {
-            writerOrValue(writer)
-          } else {
-            writer.write(writerOrValue)
-          }
-          writer.write(')[]')
-        }
-      }
-      if (schema.type === 'object') {
-        const props = Object.entries(schema.properties ?? {})
-          .reduce((props, [name, prop]) => {
-            const questionMark = schema.required?.includes(name) === true ? '' : '?'
-            const isReadonly = 'readOnly' in prop && prop.readOnly
-            const isWriteonly = 'writeOnly' in prop && prop.writeOnly
-            if (opts.readonly === false && isReadonly) {
-              return props
-            }
-            if (opts.writeonly === false && isWriteonly) {
-              return props
-            }
-            props[`${isReadonly ? 'readonly ' : ''}'${name}'${questionMark}`] = (writer) => {
-              if (opts.addReaonlyAndWriteonlyFilters && (isReadonly || isWriteonly)) {
-                writer.write('(') // we need to surround with parenthesis for unions (e.g. (string | number) & readOnly)
-              }
-              writeWriterOrString(writer, generate(prop))
-              if (opts.addReaonlyAndWriteonlyFilters && isReadonly) {
-                writer.write(') & readonlyP') // Used to remove them with mapped types
-              }
-              if (opts.addReaonlyAndWriteonlyFilters && isWriteonly) {
-                writer.write(') & writeonlyP') // Used to remove them with mapped types
-              }
-            }
-            return props
-          }, {} as Record<string, WriterFunctionOrValue>)
-        if (schema.additionalProperties && typeof schema.additionalProperties !== 'boolean') {
-          props[`[key: string]`] = generate(schema.additionalProperties)
-        }
-        return Writers.object(props)
-      }
-      if (schema.type === 'boolean') {
-        if (schema.enum) {
-          return schema.enum.join(' | ')
-        }
-        return CodeFormatting.nullable('boolean', schema.nullable)
-      }
-      if (schema.type === 'integer' || schema.type === 'number') {
-        if (schema.enum) {
-          return schema.enum.join(' | ')
-        }
-        return CodeFormatting.nullable('number', schema.nullable)
-      }
-      if (schema.format === 'date' || schema.format === 'date-time') {
-        return CodeFormatting.nullable('Date', schema.nullable)
-      }
-      if (schema.type === 'string') {
-        if (schema.enum) {
-          return schema.enum.map(member => `'${member}'`).join(' | ')
-        }
-        return CodeFormatting.nullable('string', schema.nullable)
-      }
-      return CodeFormatting.nullable('any', schema.nullable)
+  ) {
+
+    const ctx: GenerateTypeContext = {
+      spec,
+      prefixRef,
+      addReadonlyWriteonlyPrefix,
+      opts
     }
-    return generate(schema)
+    const typeNode = CodeGen.generateTypeNodeForSchema(schema, ctx)
+    return printNode(typeNode as ts.Node)
   }
 }

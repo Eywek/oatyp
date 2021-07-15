@@ -170,6 +170,12 @@ function analyzeOperationTag (operation: OpenAPIV3.OperationObject, context: Ope
     }
     const paramSchema = config.schema as OpenAPIV3.SchemaObject
     if (paramSchema) {
+      if ('$ref' in paramSchema) {
+        const refType = CodeFormatting.retrieveRef(paramSchema.$ref, context.spec)
+        if (refType) {
+          trackReferences(refType, analysis.referencedTypes, context.spec)
+        }
+      }
       analysis.paramSchemas[config.name] = paramSchema
     } else analysis.paramSchemas[config.name] = null
   }
@@ -232,7 +238,7 @@ function getSchemas (
           return getSchema(subschema)
         })
         .filter(notEmpty)
-      if (types.length < 2) {
+      if (types.length === 1) {
         return types[0]
       }
       return types
@@ -241,7 +247,15 @@ function getSchemas (
       return getSchema(schema.items)
     }
     if (schema.type === 'object') {
-      return null
+      const types = Object.entries(schema.properties || {})
+        .flatMap(([key, propSchema]) => {
+          return getSchema(propSchema)
+        })
+        .filter(notEmpty)
+      if (types.length === 1) {
+        return types[0]
+      }
+      return types
     }
     if (schema.type === 'boolean') {
       return null

@@ -79,7 +79,7 @@ export async function generateTypes (
       if (typeof schema.enum[0] === 'number') {
         file.addTypeAlias({
           isExported: true,
-          name,
+          name: CodeFormatting.makeNameSafeForIdentifier(name),
           type: schema.enum.length > 1 ?
             Writers.unionType(...(schema.enum.map(m => String(m)) as [string, string, ...string[]])) :
             String(schema.enum[0])
@@ -87,7 +87,7 @@ export async function generateTypes (
       } else {
         file.addEnum({
           isExported: true,
-          name,
+          name: CodeFormatting.makeNameSafeForIdentifier(name),
           members: schema.enum.map((val) => ({ name: val.toUpperCase(), value: val }))
         })
       }
@@ -95,7 +95,7 @@ export async function generateTypes (
     }
     file.addTypeAlias({
       isExported: true,
-      name: CodeFormatting.stringifyName(name),
+      name: CodeFormatting.makeNameSafeForIdentifier(name),
       type: CodeGen.generateTypeForSchema(schema, spec)
     })
   }

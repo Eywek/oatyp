@@ -1,6 +1,5 @@
 import { MethodDeclaration, Scope, SourceFile, WriterFunctionOrValue, Writers } from 'ts-morph'
 import { analyzePathOperations } from './project-analyzer'
-import { writeWriterOrString } from './writer-utils'
 import CodeFormatting from './code-formatting'
 import CodeGen from './code-gen'
 import type { OpenAPIV3 } from 'openapi-types'
@@ -17,18 +16,19 @@ export interface GenerateApiOptions {
   addReadonlyWriteonlyModifiers: boolean
 }
 
-function getAllReferencedTypes (analyzedPaths: AnalyzedPathItemObject[]) {
-  const referencedTypeNames: Record<string, boolean> = {}
+function getReferencedTypesFromPaths (analyzedPaths: AnalyzedPathItemObject[]) {
+  const referencedTypeNames = new Set<string>()
   analyzedPaths.forEach((path) => {
     Object.values(path.methods).forEach((methodOperations) => {
       methodOperations.forEach((analysis) => {
         Array.from(analysis.referencedTypes.keys()).forEach((key) => {
-          referencedTypeNames[key] = true
+          referencedTypeNames.add(key)
         })
       })
     })
   })
-  return Object.keys(referencedTypeNames)
+  return Array.from(referencedTypeNames)
+    .map(CodeFormatting.makeNameSafeForIdentifier)
 }
 
 function populateOperationMethod (methodDeclaration: MethodDeclaration, analysis: AnalyzedOperationObject, context: GenerateApiContext) {
@@ -60,7 +60,7 @@ function populateOperationMethod (methodDeclaration: MethodDeclaration, analysis
       {
         writeonly: true,
         readonly: false,
-        addReaonlyAndWriteonlyFilters: false
+        addReadonlyAndWriteonlyFilters: false
       }
     )
     methodDeclaration.addParameter({
@@ -86,14 +86,12 @@ function populateOperationMethod (methodDeclaration: MethodDeclaration, analysis
           {
             writeonly: false,
             readonly: true,
-            addReaonlyAndWriteonlyFilters: false
+            addReadonlyAndWriteonlyFilters: false
           }
           )
         : null
       if (returnType) {
-        writer.write(`this.axios.${analysis.operationMethod}<`)
-        writeWriterOrString(writer, returnType)
-        writer.write('>(\n')
+        writer.write(`this.axios.${analysis.operationMethod}<${returnType}>(\n`)
       } else {
         writer.write(`this.axios.${analysis.operationMethod}(\n`)
       }
@@ -156,7 +154,14 @@ export async function generateApi (file: SourceFile, spec: OpenAPIV3.Document, o
     ([path, operations]) => analyzePathOperations(operations, { spec, path })
   )
 
-  const referencedTypes = getAllReferencedTypes(pathsAnalysis)
+  const referencedTypes = getReferencedTypesFromPaths(pathsAnalysis)
+
+  if (opts.addReadonlyWriteonlyModifiers) {
+    referencedTypes.push(
+      'WithoutReadonly',
+      'WithoutWriteonly'
+    )
+  }
 
   // Imports
   file.addImportDeclaration({
@@ -164,24 +169,25 @@ export async function generateApi (file: SourceFile, spec: OpenAPIV3.Document, o
     namedImports: ['AxiosInstance', 'AxiosRequestConfig'],
     moduleSpecifier: 'axios'
   })
+
   if (referencedTypes.length) {
     file.addImportDeclaration({
       moduleSpecifier: './definitions',
       namedImports: referencedTypes,
       isTypeOnly: true
     })
+    // Exports types
+    file.addExportDeclaration({
+      namedExports: writer => {
+        writer.newLine()
+        referencedTypes.forEach((type, i) => {
+          // Create a new line for each type
+          writer.write(type).conditionalWrite(i !== referencedTypes.length - 1, ',').newLine()
+        })
+      },
+      isTypeOnly: true
+    })
   }
-  // Exports types
-  file.addExportDeclaration({
-    namedExports: writer => {
-      writer.newLine()
-      referencedTypes.forEach((type, i) => {
-        // Create a new line for each type
-        writer.write(type).conditionalWrite(i !== referencedTypes.length - 1, ',').newLine()
-      })
-    },
-    isTypeOnly: true
-  })
 
   // Init class
   const classDeclaration = file.addClass({
