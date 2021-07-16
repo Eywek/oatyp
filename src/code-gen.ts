@@ -15,6 +15,8 @@ export interface GenerateTypeNodeOptions {
   addReadonlyAndWriteonlyFilters: boolean
 }
 
+// To figure out the proper node types, see https://ts-ast-viewer.com/
+
 export default class CodeGen {
   static generatePickString (params: OpenAPIV3.ParameterObject[]) {
     if (!params || params.length === 0) return '{}'
