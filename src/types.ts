@@ -207,6 +207,9 @@ export function generateTypeForSchema (
       }
       return nullable('string', schema.nullable)
     }
+    if (schema.type === 'null') {
+      return 'null'
+    }
     return nullable('any', schema.nullable)
   }
   return generate(schema)
