@@ -1,6 +1,6 @@
 {
   "name": "oatyp",
-  "version": "1.0.0-alpha.17",
+  "version": "1.0.0-alpha.18",
   "description": "Build Typescript typings from OpenAPI definitions",
   "main": "build/src/index.js",
   "repository": "git@github.com:Eywek/oatyp.git",
