@@ -29,7 +29,8 @@ export async function generateTypes (
         typeParameters: ['T'],
         type: (writer) => {
           writer.write('{')
-          writer.withIndentationLevel(1, () => writer.writeLine(`[key in keyof T]: T[key] extends ${modifier.toLowerCase()}P ? never : key`))
+          // we also need to check the value to avoid matching Record<string, any>
+          writer.withIndentationLevel(1, () => writer.writeLine(`[key in keyof T]: T[key] extends ${modifier.toLowerCase()}P ? NonNullable<T[key]['${modifier.toLowerCase()}']> extends '__${modifier.toLowerCase()}' ? never : key : key`))
           writer.write('}[keyof T]')
         }
       })
@@ -39,7 +40,6 @@ export async function generateTypes (
         isExported: true,
         type: (writer) => {
           writer.write('T extends any ?')
-          writer.withIndentationLevel(1, () => writer.writeLine(`T extends ${modifier.toLowerCase()}P ? never :`))
           writer.withIndentationLevel(1, () => writer.writeLine('T extends Primitive ? T :'))
           writer.withIndentationLevel(1, () => writer.writeLine(`T extends Array<infer U> ? Without${modifier}<U>[] :`))
           writer.withIndentationLevel(1, () => writer.writeLine('{'))
