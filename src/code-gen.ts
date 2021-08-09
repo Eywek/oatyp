@@ -198,6 +198,10 @@ export default class CodeGen {
       )
     }
 
+    if (schema.type === 'null') {
+      return ts.factory.createLiteralTypeNode(ts.factory.createNull())
+    }
+
     return CodeGen.nullableNodeType(
       ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
       !!schema.nullable
