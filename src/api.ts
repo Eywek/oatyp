@@ -1,38 +1,193 @@
-import { Scope, SourceFile, WriterFunctionOrValue, Writers } from 'ts-morph'
-import { OpenAPIV3 } from 'openapi-types'
-import { generateTypeForSchema, writeWriterOrString } from './types'
+import { MethodDeclaration, Scope, SourceFile, WriterFunctionOrValue, Writers } from 'ts-morph'
+import { analyzePathOperations } from './project-analyzer'
+import CodeFormatting from './code-formatting'
+import CodeGen from './code-gen'
+import type { OpenAPIV3 } from 'openapi-types'
+import type { AnalyzedPathItemObject, AnalyzedOperationObject } from './project-analyzer'
 
-const METHODS_WITH_DATA = ['post', 'patch', 'put']
+export interface GenerateApiContext {
+  file: SourceFile
+  spec: OpenAPIV3.Document
+  options: GenerateApiOptions
+}
 
-export async function generateApi (
-  file: SourceFile,
-  spec: OpenAPIV3.Document,
-  opts: { removeTagFromOperationId: boolean, addReadonlyWriteonlyModifiers: boolean }
-): Promise<void> {
+export interface GenerateApiOptions {
+  removeTagFromOperationId: boolean
+  addReadonlyWriteonlyModifiers: boolean
+}
+
+function getReferencedTypesFromPaths (analyzedPaths: AnalyzedPathItemObject[]) {
+  const referencedTypeNames = new Set<string>()
+  analyzedPaths.forEach((path) => {
+    Object.values(path.methods).forEach((methodOperations) => {
+      methodOperations.forEach((analysis) => {
+        Array.from(analysis.referencedTypes.keys()).forEach((key) => {
+          referencedTypeNames.add(key)
+        })
+      })
+    })
+  })
+  return Array.from(referencedTypeNames)
+    .map(CodeFormatting.makeNameSafeForIdentifier)
+}
+
+function populateOperationMethod (methodDeclaration: MethodDeclaration, analysis: AnalyzedOperationObject, context: GenerateApiContext) {
+  // Add parameters
+  if (analysis.hasParams) {
+    const paramsProperties = analysis.params.reduce((params, param) => {
+      const paramSchema = analysis.paramSchemas[param.name]
+      const paramType = paramSchema
+        ? CodeGen.generateTypeForSchema(paramSchema, context.spec, '')
+        // If there's no schema for the parameter, make it unknown
+        : 'unknown'
+      // const paramType = analysis.paramTypes[param.name]
+      const questionToken = param.required === false ? '?' : ''
+      params[`${param.name}${questionToken}`] = paramType
+      return params
+    }, {} as Record<string, WriterFunctionOrValue>)
+    methodDeclaration.addParameter({
+      name: 'params',
+      type: Writers.object(paramsProperties)
+    })
+  }
+  // Add body
+  if (analysis.requestBodySchema) {
+    const requestBodyType = CodeGen.generateTypeForSchema(
+      analysis.requestBodySchema,
+      context.spec,
+      '', // "Types.",
+      context.options.addReadonlyWriteonlyModifiers,
+      {
+        writeonly: true,
+        readonly: false,
+        addReadonlyAndWriteonlyFilters: false
+      }
+    )
+    methodDeclaration.addParameter({
+      name: 'data',
+      type: requestBodyType
+    })
+  }
+  // Add axios config options params
+  methodDeclaration.addParameter({
+    name: 'options',
+    type: 'AxiosRequestConfig',
+    hasQuestionToken: true
+  })
+  // Axios call
+  methodDeclaration.setBodyText(
+    Writers.returnStatement((writer) => {
+      const returnType = analysis.successReturnSchema
+        ? CodeGen.generateTypeForSchema(
+            analysis.successReturnSchema,
+            context.spec,
+            '', // "Types.",
+            context.options.addReadonlyWriteonlyModifiers,
+          {
+            writeonly: false,
+            readonly: true,
+            addReadonlyAndWriteonlyFilters: false
+          }
+          )
+        : null
+      if (returnType) {
+        writer.write(`this.axios.${analysis.operationMethod}<${returnType}>(\n`)
+      } else {
+        writer.write(`this.axios.${analysis.operationMethod}(\n`)
+      }
+      // Endpoint
+      writer.indent(() => {
+        writer.quote(analysis.operationPath)
+        if (analysis.hasPathParams) {
+          // We need to replace url parameters in the endpoint
+          for (const param of analysis.pathParams) {
+            writer.write(`.replace(/{${param.name}}/, String(params[`).quote(param.name).write(']))')
+          }
+        }
+        // Data
+        if (analysis.isMethodWithData) {
+          if (analysis.hasRequestBody) {
+            writer.write(', data')
+          } else {
+            writer.write(', {}')
+          }
+        }
+        // Axios config
+        const needsAssign = analysis.hasHeaderParams || analysis.hasQueryParams
+        if (needsAssign) {
+          writer
+            .write(',')
+            .writeLine('Object.assign(')
+            .indent(() => {
+              writer
+                .writeLine('{},')
+                .inlineBlock(() => {
+                  if (analysis.hasHeaderParams) {
+                    writer.writeLine('headers: ' + CodeGen.generatePickString(analysis.headerParams) + ',')
+                  }
+                  if (analysis.hasQueryParams) {
+                    writer.writeLine('params: ' + CodeGen.generatePickString(analysis.queryParams) + ',')
+                  }
+                })
+                .write(',')
+                .writeLine('options')
+            })
+          writer.writeLine(')') // Assign ending paren
+        } else {
+          writer.write(', options')
+        }
+      })
+      writer.write(')') // Call ending paren
+    })
+  )
+}
+
+export async function generateApi (file: SourceFile, spec: OpenAPIV3.Document, opts: GenerateApiOptions): Promise<void> {
+  const genContext: GenerateApiContext = {
+    file,
+    spec,
+    options: opts
+  }
+
+  // Analyze all the operations in advance
+  const pathsAnalysis = Object.entries(spec.paths).map(
+    ([path, operations]) => analyzePathOperations(operations, { spec, path })
+  )
+
+  const referencedTypes = getReferencedTypesFromPaths(pathsAnalysis)
+
+  if (opts.addReadonlyWriteonlyModifiers) {
+    referencedTypes.push(
+      'WithoutReadonly',
+      'WithoutWriteonly'
+    )
+  }
+
   // Imports
   file.addImportDeclaration({
     defaultImport: 'axios',
     namedImports: ['AxiosInstance', 'AxiosRequestConfig'],
     moduleSpecifier: 'axios'
   })
-  file.addImportDeclaration({
-    namespaceImport: 'Types',
-    moduleSpecifier: './definitions'
-  })
-  // Exports types
-  file.addExportDeclaration({
-    moduleSpecifier: './definitions'
-  })
 
-  // Utils
-  file
-    .addFunction({
-      name: 'pick',
-      parameters: [{ name: 'obj', type: 'T' }, { name: 'keys', type: 'K[]', isRestParameter: true }],
-      typeParameters: [{ name: 'T' }, { name: 'K', constraint: 'keyof T' }]
+  if (referencedTypes.length) {
+    file.addImportDeclaration({
+      moduleSpecifier: './definitions',
+      namedImports: referencedTypes,
+      isTypeOnly: true
     })
-    .setReturnType('Pick<T, K>')
-    .setBodyText('const ret: any = {};\nkeys.forEach(key => {\n    if (key in obj)\n        ret[key] = obj[key];\n})\nreturn ret;')
+    // Exports types
+    file.addExportDeclaration({
+      namedExports: writer => {
+        writer.newLine()
+        referencedTypes.forEach((type, i) => {
+          // Create a new line for each type
+          writer.write(type).conditionalWrite(i !== referencedTypes.length - 1, ',').newLine()
+        })
+      },
+      isTypeOnly: true
+    })
+  }
 
   // Init class
   const classDeclaration = file.addClass({
@@ -41,138 +196,50 @@ export async function generateApi (
   const classDeclarationMethods = new Map<string, Record<string, WriterFunctionOrValue>>()
 
   // Constructor
-  classDeclaration
-    .addProperty({
-      name: 'axios',
-      scope: Scope.Public,
-      type: 'AxiosInstance'
-    })
+  classDeclaration.addProperty({
+    name: 'axios',
+    scope: Scope.Public,
+    type: 'AxiosInstance'
+  })
   classDeclaration
     .addConstructor({
-      parameters: [{
-        name: 'configOrInstance',
-        type: 'AxiosRequestConfig | AxiosInstance'
-      }]
+      parameters: [
+        {
+          name: 'configOrInstance',
+          type: 'AxiosRequestConfig | AxiosInstance'
+        }
+      ]
     })
     .setBodyText((writer) => {
-      writer.write('this.axios = \'interceptors\' in configOrInstance ? configOrInstance : axios.create(configOrInstance)')
+      writer.write("this.axios = 'interceptors' in configOrInstance").indent(() => {
+        writer.writeLine('? configOrInstance')
+        writer.writeLine(': axios.create(configOrInstance)')
+      })
     })
 
   // Operations
-  for (const [path, operations] of Object.entries(spec.paths)) {
-    for (const method of ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace'] as const) {
-      const operation = operations[method]
-      const operationId = operation?.operationId // Must be defined
-      if (operation === undefined || operationId === undefined) continue
-      // We add the operation method for each tag
-      // by default we fallback to `default` tag if not provided
-      const tags = operation.tags && operation.tags.length > 0 ? operation.tags : ['default']
-      for (const rawTag of tags) {
-        const tag = pascalCase(rawTag)
+  for (const operationsAnalysis of pathsAnalysis) {
+    for (const analyzedOperations of Object.values(operationsAnalysis.methods)) {
+      for (const analysis of analyzedOperations) {
         // Initialize object for tag
-        if (classDeclarationMethods.has(tag) === false) {
-          classDeclarationMethods.set(tag, {})
+        if (classDeclarationMethods.has(analysis.tag) === false) {
+          classDeclarationMethods.set(analysis.tag, {})
         }
-        const tagObject = classDeclarationMethods.get(tag)!
-
-        const responses = operation.responses
-        if (typeof responses === 'undefined' || Object.keys(responses).length === 0) continue
-        const [, successResponseObject] = Object.entries(responses)[0] as [string, OpenAPIV3.ResponseObject]
-        const successResponse = successResponseObject.content!['application/json']
+        const tagObject = classDeclarationMethods.get(analysis.tag)!
 
         // Handle operation method
-        const methodName = camelCase(operationId)
-        const methodDeclaration = classDeclaration
-          .addMethod({
-            scope: Scope.Private,
-            name: methodName
-          })
-        // Add parameters
-        methodDeclaration.addParameter({
-          name: 'params',
-          type: Writers.object(
-            (operation.parameters ?? []).reduce((params, param) => {
-              const config = param as OpenAPIV3.ParameterObject
-              const questionToken = config.required === false ? '?' : ''
-              params[`'${config.name}'${questionToken}`] = generateTypeForSchema(config.schema ?? {}, spec, 'Types.')
-              return params
-            }, {} as Record<string, WriterFunctionOrValue>)
-          )
+        const methodDeclaration = classDeclaration.addMethod({
+          scope: Scope.Private,
+          name: analysis.methodName
         })
-        // Add body
-        let haveBody = false
-        if (METHODS_WITH_DATA.includes(method)) {
-          const bodySchema = (operation.requestBody as OpenAPIV3.RequestBodyObject | undefined)?.content['application/json']?.schema
-          if (bodySchema) {
-            haveBody = true
-            methodDeclaration.addParameter({
-              name: 'data',
-              type: generateTypeForSchema(
-                bodySchema,
-                spec,
-                'Types.',
-                opts.addReadonlyWriteonlyModifiers,
-                {
-                  writeonly: true,
-                  readonly: false,
-                  addReaonlyAndWriteonlyFilters: false
-                }
-              )
-            })
-          }
-        }
-        // Add axios config options params
-        methodDeclaration.addParameter({
-          name: 'options',
-          type: 'AxiosRequestConfig',
-          hasQuestionToken: true
-        })
-        // Axios call
-        methodDeclaration.setBodyText(Writers.returnStatement((writer) => {
-          writer.write(`this.axios.${method}<`)
-          // Return type
-          writeWriterOrString(
-            writer,
-            generateTypeForSchema(successResponse.schema!, spec,
-              'Types.',
-              opts.addReadonlyWriteonlyModifiers, {
-                writeonly: false,
-                readonly: true,
-                addReaonlyAndWriteonlyFilters: false
-              }
-            )
-          )
-          writer.write('>(')
-          // Endpoint
-          writer.quote(path)
-          // We need to replace url parameters in the endpoint
-          for (const param of operation.parameters ?? []) {
-            const config = param as OpenAPIV3.ParameterObject
-            if (config.in !== 'path') continue
-            writer.write(`.replace(/{${config.name}}/, String(params[`)
-            writer.quote(config.name)
-            writer.write(']))')
-          }
-          // Data
-          if (METHODS_WITH_DATA.includes(method)) {
-            if (haveBody) {
-              writer.write(', data')
-            } else {
-              writer.write(', {}')
-            }
-          }
-          // Axios config
-          writer.write(', Object.assign({}, { headers: ' + generatePickString(operation, 'header') + ', params: ' + generatePickString(operation, 'query') + ' }, options)')
-          // Data
-          writer.write(')')
-        }))
+
+        populateOperationMethod(methodDeclaration, analysis, genContext)
 
         // Add to getter
-        let getterName = methodName
-        if (opts.removeTagFromOperationId) {
-          getterName = getterName.replace(new RegExp(tag, 'gi'), '')
-        }
-        tagObject[getterName] = `this.${methodName}.bind(this)`
+        const getterName = opts.removeTagFromOperationId
+          ? CodeFormatting.removeTagFromMethodName(analysis.tag, analysis.methodName)
+          : analysis.methodName
+        tagObject[getterName] = `this.${analysis.methodName}.bind(this)`
       }
     }
   }
@@ -180,27 +247,36 @@ export async function generateApi (
   // Add get accessors with objects
   for (const [tag, object] of classDeclarationMethods.entries()) {
     classDeclaration
-      .addGetAccessor({ name: pascalCase(tag) })
-      .setBodyText(
-        Writers.returnStatement(Writers.object(object))
-      )
+      .addGetAccessor({ name: CodeFormatting.pascalCase(tag) })
+      .setBodyText(Writers.returnStatement(Writers.object(object)))
   }
-}
 
-function camelCase (str: string) {
-  const camel = str.replace(/\W+(.)/g, (match, chr) => chr.toUpperCase())
-  return camel.charAt(0).toLowerCase() + camel.slice(1)
-}
-
-function pascalCase (str: string) {
-  const camel = camelCase(str)
-  return camel.charAt(0).toUpperCase() + camel.slice(1)
-}
-
-function generatePickString (operation: OpenAPIV3.OperationObject, paramsType: 'query' | 'header' | 'path') {
-  const params = operation.parameters?.filter((param) => {
-    return 'in' in param && param.in === paramsType
-  }) as OpenAPIV3.ParameterObject[]
-  if (params.length === 0) return '{}'
-  return `pick(params, "${params.map(p => p.name).join('", "')}")`
+  // Utils
+  const needsPickFunction = pathsAnalysis.some((e) =>
+    Object.values(e.methods).some((m) => m.some((o) => o.hasHeaderParams || o.hasQueryParams))
+  )
+  if (needsPickFunction) {
+    file
+    .addFunction({
+      name: 'pick',
+      parameters: [
+        { name: 'obj', type: 'T' },
+        { name: 'keys', type: 'K[]', isRestParameter: true }
+      ],
+      typeParameters: [{ name: 'T' }, { name: 'K', constraint: 'keyof T' }]
+    })
+    .setReturnType('Pick<T, K>')
+    .setBodyText((writer) => {
+      writer.writeLine('const ret: Pick<T, K> = {} as Pick<T, K>;')
+      writer.write('keys.forEach(key => {')
+      writer.indent(() => {
+        writer.writeLine('if (key in obj)')
+        writer.indent(() => {
+          writer.writeLine('ret[key] = obj[key];')
+        })
+      })
+      writer.writeLine('});')
+      writer.writeLine('return ret;')
+    })
+  }
 }
