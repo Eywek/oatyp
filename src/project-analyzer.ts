@@ -168,7 +168,7 @@ function analyzeOperationTag (operation: OpenAPIV3.OperationObject, context: Ope
         analysis.queryParams.push(config)
         break
     }
-    const paramSchema = config.schema as OpenAPIV3.SchemaObject
+    const paramSchema = config.schema as OpenAPIV3.ReferenceObject | OpenAPIV3.SchemaObject
     if (paramSchema) {
       if ('$ref' in paramSchema) {
         const refType = CodeFormatting.retrieveRef(paramSchema.$ref, context.spec)
