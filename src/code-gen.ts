@@ -37,7 +37,7 @@ export default class CodeGen {
     propType: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
     ctx: GenerateTypeContext
   ) {
-    const isRequired = schema.required?.includes(propName) === true ? '' : '?'
+    const isRequired = schema.required?.includes(propName) === true
     const isReadonly = 'readOnly' in propType && propType.readOnly
     const isWriteonly = 'writeOnly' in propType && propType.writeOnly
 
@@ -48,7 +48,7 @@ export default class CodeGen {
     const name = CodeFormatting.isSafeIdentifier(propName)
       ? ts.factory.createIdentifier(propName)
       : ts.factory.createStringLiteral(propName)
-    const questionToken = !isRequired
+    const questionToken = isRequired === false
       ? ts.factory.createToken(ts.SyntaxKind.QuestionToken)
       : undefined
     let type: ts.TypeNode | undefined = CodeGen.generateTypeNodeForSchema(propType, ctx)
