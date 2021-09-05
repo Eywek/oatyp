@@ -170,12 +170,7 @@ function analyzeOperationTag (operation: OpenAPIV3.OperationObject, context: Ope
     }
     const paramSchema = config.schema as OpenAPIV3.ReferenceObject | OpenAPIV3.SchemaObject
     if (paramSchema) {
-      if ('$ref' in paramSchema) {
-        const refType = CodeFormatting.retrieveRef(paramSchema.$ref, context.spec)
-        if (refType) {
-          trackReferences(refType, analysis.referencedTypes, context.spec)
-        }
-      }
+      trackReferences(paramSchema, analysis.referencedTypes, context.spec)
       analysis.paramSchemas[config.name] = paramSchema
     } else analysis.paramSchemas[config.name] = null
   }
