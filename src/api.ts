@@ -40,9 +40,8 @@ function populateOperationMethod (methodDeclaration: MethodDeclaration, analysis
         ? CodeGen.generateTypeForSchema(paramSchema, context.spec, '')
         // If there's no schema for the parameter, make it unknown
         : 'unknown'
-      // const paramType = analysis.paramTypes[param.name]
       const questionToken = param.required === false ? '?' : ''
-      params[`${param.name}${questionToken}`] = paramType
+      params[`'${param.name}'${questionToken}`] = paramType
       return params
     }, {} as Record<string, WriterFunctionOrValue>)
     methodDeclaration.addParameter({
