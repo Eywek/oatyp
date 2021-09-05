@@ -37,7 +37,7 @@ export default class CodeGen {
     propType: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
     ctx: GenerateTypeContext
   ) {
-    const isRequired = schema.required?.includes(propName) === true ? '' : '?'
+    const isRequired = schema.required?.includes(propName) ? true : false
     const isReadonly = 'readOnly' in propType && propType.readOnly
     const isWriteonly = 'writeOnly' in propType && propType.writeOnly
 
