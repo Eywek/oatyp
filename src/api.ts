@@ -269,7 +269,7 @@ export async function generateApi (file: SourceFile, spec: OpenAPIV3.Document, o
       writer.writeLine('const ret: Pick<T, K> = {} as Pick<T, K>;')
       writer.write('keys.forEach(key => {')
       writer.indent(() => {
-        writer.writeLine('if (key in obj)')
+        writer.writeLine('if (obj && Object.keys(obj).includes(key))')
         writer.indent(() => {
           writer.writeLine('ret[key] = obj[key];')
         })
