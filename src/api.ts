@@ -176,15 +176,10 @@ export async function generateApi (file: SourceFile, spec: OpenAPIV3.Document, o
       isTypeOnly: true
     })
     // Exports types
+    // note: this is not typeOnly because we could have enum
     file.addExportDeclaration({
-      namedExports: writer => {
-        writer.newLine()
-        referencedTypes.forEach((type, i) => {
-          // Create a new line for each type
-          writer.write(type).conditionalWrite(i !== referencedTypes.length - 1, ',').newLine()
-        })
-      },
-      isTypeOnly: true
+      moduleSpecifier: './definitions',
+      namedExports: referencedTypes
     })
   }
 
