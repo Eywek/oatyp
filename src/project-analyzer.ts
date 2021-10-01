@@ -247,6 +247,16 @@ function getSchemas (
           return getSchema(propSchema)
         })
         .filter(notEmpty)
+      if (schema.additionalProperties && typeof schema.additionalProperties !== 'boolean') {
+        const s = getSchema(schema.additionalProperties)
+        if (s !== null) {
+          if (Array.isArray(s)) {
+            types.push(...s)
+          } else {
+            types.push(s)
+          }
+        }
+      }
       if (types.length === 1) {
         return types[0]
       }

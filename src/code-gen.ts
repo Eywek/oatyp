@@ -33,11 +33,11 @@ export default class CodeGen {
 
   static generatePropertySignature (
     schema: OpenAPIV3.NonArraySchemaObject,
-    propName: string,
+    propName: string | ts.Identifier | ts.StringLiteral,
     propType: OpenAPIV3.ReferenceObject | OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
-    ctx: GenerateTypeContext
+    ctx: GenerateTypeContext,
+    isRequired = typeof propName === 'string' && schema.required?.includes(propName) === true
   ) {
-    const isRequired = schema.required?.includes(propName) === true
     const isReadonly = 'readOnly' in propType && propType.readOnly
     const isWriteonly = 'writeOnly' in propType && propType.writeOnly
 
@@ -45,9 +45,9 @@ export default class CodeGen {
     if (isReadonly) {
       modifiers.push(ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword))
     }
-    const name = CodeFormatting.isSafeIdentifier(propName)
+    const name = typeof propName === 'string' ? (CodeFormatting.isSafeIdentifier(propName)
       ? ts.factory.createIdentifier(propName)
-      : ts.factory.createStringLiteral(propName)
+      : ts.factory.createStringLiteral(propName)) : propName
     const questionToken = isRequired === false
       ? ts.factory.createToken(ts.SyntaxKind.QuestionToken)
       : undefined
@@ -88,6 +88,12 @@ export default class CodeGen {
         .map(([name, prop]) => CodeGen.generatePropertySignature(schema, name, prop, ctx))
         .filter(v => !!v) // remove nulls
     ) as ts.PropertySignature[]
+    if (schema.additionalProperties && typeof schema.additionalProperties !== 'boolean') {
+      const additionalProperty = CodeGen.generatePropertySignature(schema, ts.factory.createIdentifier('[key: string]'), schema.additionalProperties, ctx, true)
+      if (additionalProperty !== null) {
+        propSignatures.push(additionalProperty)
+      }
+    }
 
     return ts.factory.createTypeLiteralNode(propSignatures)
   }
