@@ -144,7 +144,7 @@ export default class CodeGen {
     if (schema.type === 'array') {
       if (!schema.items) {
         return ts.factory.createArrayTypeNode(
-          ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+          ts.factory.createKeywordTypeNode(ts.SyntaxKind.UnknownKeyword)
         )
       }
       return ts.factory.createArrayTypeNode(CodeGen.generateTypeNodeForSchema(schema.items, ctx))
@@ -209,7 +209,7 @@ export default class CodeGen {
     }
 
     return CodeGen.nullableNodeType(
-      ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
+      ts.factory.createKeywordTypeNode(ts.SyntaxKind.UnknownKeyword),
       !!schema.nullable
     )
   }
