@@ -75,6 +75,7 @@ function addReadonlyWriteonlyModifiers (file: SourceFile) {
         writer.write('T extends any ?')
         writer.withIndentationLevel(1, () => writer.writeLine('T extends Primitive ? T :'))
         writer.withIndentationLevel(1, () => writer.writeLine(`T extends Array<infer U> ? Without${modifier}<U>[] :`))
+        writer.withIndentationLevel(1, () => writer.writeLine('keyof T extends never ? unknown :')) // handle unknown values
         writer.withIndentationLevel(1, () => writer.writeLine('{'))
         // note: we use Pick<> instead of `key in PropsWithout${modifier}<T>` to keep `?` modifier
         writer.withIndentationLevel(2, () => writer.writeLine(`[key in keyof Pick<T, PropsWithout${modifier}<T>>]: Pick<T, PropsWithout${modifier}<T>>[key] extends any`))
