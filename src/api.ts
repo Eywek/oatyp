@@ -175,13 +175,13 @@ export async function generateApi (file: SourceFile, spec: OpenAPIV3.Document, o
       namedImports: referencedTypes,
       isTypeOnly: true
     })
-    // Exports types
-    // note: this is not typeOnly because we could have enum
-    file.addExportDeclaration({
-      moduleSpecifier: './definitions',
-      namedExports: referencedTypes
-    })
   }
+  // Exports all types
+  // because some types could be needed but no referenced in the swagger if inlined
+  // note: this is not typeOnly because we could have enum
+  file.addExportDeclaration({
+    moduleSpecifier: './definitions'
+  })
 
   // Init class
   const classDeclaration = file.addClass({
