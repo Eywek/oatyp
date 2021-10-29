@@ -10,6 +10,7 @@ export type GenerateConfig = {
   outDir: string
   openapiFilePath: string
   removeTagFromOperationId?: boolean
+  alwaysAddParamsMethodParameter?: boolean
   tsConfig?: ts.CompilerOptions
 }
 
@@ -98,7 +99,8 @@ export async function generate (config: GenerateConfig) {
   await generateApi(apiSourceFile, spec, {
     removeTagFromOperationId:
       typeof config.removeTagFromOperationId === 'undefined' ? false : config.removeTagFromOperationId,
-    addReadonlyWriteonlyModifiers: haveReadonlyOrWriteonlyProps === true
+    addReadonlyWriteonlyModifiers: haveReadonlyOrWriteonlyProps === true,
+    alwaysAddParamsMethodParameter: typeof config.alwaysAddParamsMethodParameter === 'undefined' ? true : config.alwaysAddParamsMethodParameter
   })
 
   // Emit typescript files

@@ -13,6 +13,7 @@ export interface GenerateApiContext {
 
 export interface GenerateApiOptions {
   removeTagFromOperationId: boolean
+  alwaysAddParamsMethodParameter: boolean
   addReadonlyWriteonlyModifiers: boolean
 }
 
@@ -47,6 +48,12 @@ function populateOperationMethod (methodDeclaration: MethodDeclaration, analysis
     methodDeclaration.addParameter({
       name: 'params',
       type: Writers.object(paramsProperties)
+    })
+  } else if (context.options.alwaysAddParamsMethodParameter) {
+    // We always add params to ensure consistency
+    methodDeclaration.addParameter({
+      name: 'params',
+      type: 'Record<string, never>'
     })
   }
   // Add body
