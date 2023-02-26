@@ -129,14 +129,14 @@ export default class CodeGen {
     if (schema.allOf) {
       const types = schema.allOf.map(s => CodeGen.generateTypeNodeForSchema(s, ctx))
       if (types.length < 2) {
-        return types[0]
+        return CodeGen.nullableNodeType(types[0], !!schema.nullable);
       }
       return ts.factory.createIntersectionTypeNode(types)
     }
     if (schema.oneOf) {
       const types = schema.oneOf.map(s => CodeGen.generateTypeNodeForSchema(s, ctx))
       if (types.length < 2) {
-        return types[0]
+        return CodeGen.nullableNodeType(types[0], !!schema.nullable);
       }
       return ts.factory.createUnionTypeNode(types)
     }
