@@ -7,7 +7,7 @@
   "author": "Valentin Touffet <contact@eywek.fr>",
   "license": "MIT",
   "scripts": {
-    "prepublish": "yarn build",
+    "prepublishOnly": "yarn build",
     "prebuild": "rimraf -rf build",
     "build": "tsc --project ./tsconfig.build.json",
     "test": "NODE_V8_COVERAGE=./coverage ava",
