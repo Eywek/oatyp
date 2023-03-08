@@ -170,11 +170,11 @@ export default class CodeGen {
 
     if (schema.type === 'integer' || schema.type === 'number') {
       if (schema.enum) {
-        return ts.factory.createUnionTypeNode(
+        return  CodeGen.nullableNodeType(ts.factory.createUnionTypeNode(
           schema.enum.map(name =>
             ts.factory.createLiteralTypeNode(ts.factory.createNumericLiteral(name))
           )
-        )
+        ), !!schema.nullable)
       }
       return CodeGen.nullableNodeType(
         ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword),
@@ -194,9 +194,9 @@ export default class CodeGen {
         const enumNodes = schema.enum.map(name =>
           ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(name))
         )
-        return enumNodes.length === 1
+        return CodeGen.nullableNodeType(enumNodes.length === 1
           ? enumNodes[0]
-          : ts.factory.createUnionTypeNode(enumNodes)
+          : ts.factory.createUnionTypeNode(enumNodes), !!schema.nullable)
       }
       return CodeGen.nullableNodeType(
         ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
