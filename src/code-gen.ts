@@ -182,13 +182,6 @@ export default class CodeGen {
       )
     }
 
-    if (schema.format === 'date' || schema.format === 'date-time') {
-      return CodeGen.nullableNodeType(
-        ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Date')),
-        !!schema.nullable
-      )
-    }
-
     if (schema.type === 'string') {
       if (schema.enum) {
         const enumNodes = schema.enum.map(name =>
