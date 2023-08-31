@@ -135,10 +135,11 @@ function analyzeOperationTag (operation: OpenAPIV3.OperationObject, context: Ope
   }
 
   if (analysis.isMethodWithData) {
-    analysis.requestBodySchema = (operation.requestBody as OpenAPIV3.RequestBodyObject | undefined)?.content[
+    const bodyContent = (operation.requestBody as OpenAPIV3.RequestBodyObject | undefined)?.content
+    analysis.requestBodySchema = bodyContent?.[
       'application/json'
     ]?.schema
-    analysis.hasRequestBody = !!analysis.requestBodySchema
+    analysis.hasRequestBody = Object.entries(bodyContent ?? {}).length > 0
     if (analysis.requestBodySchema) {
       trackReferences(analysis.requestBodySchema, analysis.referencedTypes, context.spec)
     }

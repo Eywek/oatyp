@@ -73,6 +73,11 @@ function populateOperationMethod (methodDeclaration: MethodDeclaration, analysis
       name: 'data',
       type: requestBodyType
     })
+  } else if (analysis.hasRequestBody) {
+    methodDeclaration.addParameter({
+      name: 'data',
+      type: 'any'
+    })
   }
   // Add axios config options params
   methodDeclaration.addParameter({
